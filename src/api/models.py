@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import String, Boolean, ForeignKey, Integer, DateTime, Text
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
@@ -39,6 +40,13 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
+
+    # Helpers de seguridad
+    def set_password(self, raw_password: str):
+        self.password = generate_password_hash(raw_password)
+
+    def check_password(self, raw_password: str) -> bool:
+        return check_password_hash(self.password, raw_password)
 
     def serialize(self):
         return {
@@ -137,3 +145,4 @@ class Group(db.Model):
             "title": self.title,
             "color": self.color
         }
+
