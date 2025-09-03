@@ -12,8 +12,9 @@ class User(db.Model):
     __tablename__ = 'user'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    displayName: Mapped[str] = mapped_column(String(100), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean(), nullable=False)
     email: Mapped[str] = mapped_column(
         String(120), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -78,7 +79,7 @@ class Event(db.Model):
 
     # Relaciones
     user = relationship("User", back_populates="events")
-    group = relationship("Group", back_populates="events")  #  N:1 hacia Group
+    group = relationship("Group", back_populates="events")  # N:1 hacia Group
 
     def serialize(self):
         return {
@@ -108,7 +109,7 @@ class Task(db.Model):
 
     # Relaciones
     user = relationship("User", back_populates="tasks")
-    group = relationship("Group", back_populates="tasks")  #  N:1 hacia Group
+    group = relationship("Group", back_populates="tasks")  # N:1 hacia Group
 
     def serialize(self):
         return {
@@ -145,4 +146,5 @@ class Group(db.Model):
             "title": self.title,
             "color": self.color
         }
+
 
