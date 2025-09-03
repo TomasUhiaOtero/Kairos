@@ -13,24 +13,21 @@ class User(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     displayName: Mapped[str] = mapped_column(String(100), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str] = mapped_column(
-        String(120), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
-    signup_date: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow)
+    signup_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     profile_pic: Mapped[str] = mapped_column(String(255))
     rol: Mapped[str] = mapped_column(String(50), default='user')
     last_session: Mapped[datetime] = mapped_column(DateTime)
     status: Mapped[bool] = mapped_column(Boolean, default=True)
-    google_id: Mapped[int] = mapped_column(Integer)
+    google_id: Mapped[int] = mapped_column(Integer, unique=True)
     google_refresh_token: Mapped[str] = mapped_column(String(255))
     google_access_token: Mapped[str] = mapped_column(String(255))
 
     # Relaciones
-    events = relationship("Event", back_populates="user",
-                          cascade="all, delete-orphan")
-    tasks = relationship("Task", back_populates="user",
-                         cascade="all, delete-orphan")
+    events = relationship("Event", back_populates="user", cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
+    groups = relationship("Group", back_populates="user", cascade="all, delete-orphan")
 
     def set_password(self, password):
         self.password = generate_password_hash(password)
@@ -49,7 +46,6 @@ class User(db.Model):
             "rol": self.rol,
             "last_session": self.last_session.isoformat() if self.last_session else None,
             "status": self.status,
-            # No serializar información sensible como contraseñas y tokens
         }
 
 
@@ -57,16 +53,16 @@ class Event(db.Model):
     __tablename__ = 'event'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey('user.id'), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('user.id'), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     description: Mapped[str] = mapped_column(Text)
     color: Mapped[str] = mapped_column(String(50))
 
-    # Relación
+    # Relaciones
     user = relationship("User", back_populates="events")
+    groups = relationship("Group", back_populates="event", cascade="all, delete-orphan")
 
     def serialize(self):
         return {
@@ -84,16 +80,16 @@ class Task(db.Model):
     __tablename__ = 'task'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey('user.id'), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('user.id'), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     status: Mapped[bool] = mapped_column(Boolean, default=False)
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    recurencia: Mapped[int] = mapped_column(Integer, default=0)
+    recurrencia: Mapped[int] = mapped_column(Integer, default=0)
     color: Mapped[str] = mapped_column(String(50))
 
-    # Relación
+    # Relaciones
     user = relationship("User", back_populates="tasks")
+    groups = relationship("Group", back_populates="task", cascade="all, delete-orphan")
 
     def serialize(self):
         return {
@@ -102,6 +98,32 @@ class Task(db.Model):
             "title": self.title,
             "status": self.status,
             "date": self.date.isoformat() if self.date else None,
-            "recurencia": self.recurencia,
+            "recurrencia": self.recurrencia,
+            "color": self.color
+        }
+
+
+class Group(db.Model):
+    __tablename__ = 'group'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('user.id'), nullable=False)
+    event_id: Mapped[int] = mapped_column(Integer, ForeignKey('event.id'))
+    task_id: Mapped[int] = mapped_column(Integer, ForeignKey('task.id'))
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    color: Mapped[str] = mapped_column(String(50))
+
+    # Relaciones
+    user = relationship("User", back_populates="groups")
+    event = relationship("Event", back_populates="groups")
+    task = relationship("Task", back_populates="groups")
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "event_id": self.event_id,
+            "task_id": self.task_id,
+            "title": self.title,
             "color": self.color
         }
