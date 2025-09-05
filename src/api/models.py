@@ -24,9 +24,9 @@ class User(db.Model):
     rol: Mapped[str] = mapped_column(String(50), default='user')
     last_session: Mapped[datetime] = mapped_column(DateTime)
     status: Mapped[bool] = mapped_column(Boolean, default=True)
-    google_id: Mapped[int] = mapped_column(Integer, unique=True)
-    google_refresh_token: Mapped[str] = mapped_column(String(255))
-    google_access_token: Mapped[str] = mapped_column(String(255))
+    google_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=True)
+    google_refresh_token: Mapped[str] = mapped_column(String(255), nullable=True)
+    google_access_token: Mapped[str] = mapped_column(String(255), nullable=True)
 
     # Relaciones
     events = relationship("Event", back_populates="user",
