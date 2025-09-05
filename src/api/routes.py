@@ -80,7 +80,6 @@ def login_options():
 @api.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json() or {}
-
     email = (data.get("email") or "").strip().lower()
     password = (data.get("password") or "").strip()
     name = (data.get("name") or "").strip()
