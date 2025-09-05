@@ -1,13 +1,20 @@
 import { useState } from "react";
 
 export const Signup = () => {
-  const [form, setForm] = useState({ email: "", password: "", confirm: "" });
+  const [form, setForm] = useState({
+    name: "",
+    display_name: "",
+    email: "",
+    password: "",
+    confirm: "",
+  });
   const [status, setStatus] = useState({ loading: false, error: null, ok: null });
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const onSubmit = async (e) => {
     e.preventDefault();
+
     if (form.password !== form.confirm) {
       setStatus({ loading: false, error: "Las contraseñas no coinciden", ok: null });
       return;
@@ -22,13 +29,17 @@ export const Signup = () => {
       const resp = await fetch(`${base}/api/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, password: form.password }),
+        body: JSON.stringify({
+          name: form.name,
+          display_name: form.display_name || form.name, // fallback razonable
+          email: form.email,
+          password: form.password,
+        }),
       });
 
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.message || "No se pudo crear la cuenta");
 
-      // Guardar token si lo envía el backend
       if (data?.token) localStorage.setItem("token", data.token);
 
       setStatus({
@@ -44,7 +55,33 @@ export const Signup = () => {
   return (
     <div className="container" style={{ maxWidth: 480 }}>
       <h2 className="my-4">Crear cuenta</h2>
+
       <form onSubmit={onSubmit}>
+        <div className="mb-3">
+          <label className="form-label">Nombre</label>
+          <input
+            name="name"
+            type="text"
+            className="form-control"
+            value={form.name}
+            onChange={onChange}
+            placeholder="Tu nombre real"
+            required
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label">Nombre visible</label>
+          <input
+            name="display_name"
+            type="text"
+            className="form-control"
+            value={form.display_name}
+            onChange={onChange}
+            placeholder="Cómo quieres que te vean (opcional)"
+          />
+        </div>
+
         <div className="mb-3">
           <label className="form-label">Email</label>
           <input

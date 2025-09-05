@@ -24,12 +24,32 @@ app.url_map.strict_slashes = False
 # 🔑 Secret key para firmar tokens (usa variable de entorno o valor por defecto)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_APP_KEY', 'change-this-in-prod')
 
-# Enable CORS (for frontend-backend communication)
-CORS(app, resources={r"/api/*": {
-    "origins": "*",
-    "allow_headers": ["Content-Type", "Authorization"],
-    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-}})
+# ===================== CORS (Global) =====================
+# Define el origen del frontend (puedes setearlo en .env del backend)
+FRONTEND_ORIGIN = os.getenv(
+    "FRONTEND_ORIGIN",
+    "https://friendly-space-goggles-r466vpgq474jfpr9j-3000.app.github.dev"
+)
+
+# Habilita CORS para todas las rutas /api/*
+CORS(
+    app,
+    resources={r"/api/*": {"origins": [FRONTEND_ORIGIN]}},
+    supports_credentials=False  # Si no usas cookies/sesiones, déjalo en False
+)
+
+@app.after_request
+def add_cors_headers(resp):
+    """
+    Refuerza CORS en cualquier respuesta (incluye errores y preflight).
+    Evita bloqueos en entornos como GitHub Codespaces.
+    """
+    resp.headers["Access-Control-Allow-Origin"] = FRONTEND_ORIGIN
+    resp.headers["Vary"] = "Origin"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    return resp
+# =========================================================
 
 # Database configuration
 db_url = os.getenv("DATABASE_URL")
@@ -52,10 +72,20 @@ setup_commands(app)
 app.register_blueprint(api, url_prefix='/api')
 
 
-# Handle/serialize errors like a JSON object
+# Handle/serialize known API errors
 @app.errorhandler(APIException)
 def handle_invalid_usage(error):
     return jsonify(error.to_dict()), error.status_code
+
+# Manejo genérico de errores 500 (si algo se escapa, responde JSON con CORS)
+@app.errorhandler(Exception)
+def handle_unexpected_error(err):
+    try:
+        import traceback
+        print("UNHANDLED ERROR:", traceback.format_exc())
+    except Exception:
+        pass
+    return jsonify({"message": "Internal Server Error", "detail": str(err)}), 500
 
 
 # Generate sitemap with all your endpoints
@@ -80,3 +110,13 @@ def serve_any_other_file(path):
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3001))
     app.run(host='0.0.0.0', port=PORT, debug=True)
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(err):
+    return jsonify({"message": "Internal Server Error", "detail": str(err)}), 500
+
+
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    return send_from_directory(os.path.join(os.path.dirname(__file__), 'front/assets/img'), filename)
