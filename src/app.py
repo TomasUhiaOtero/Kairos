@@ -12,6 +12,7 @@ from api.models import db
 from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
+from api.routesEvent import apiEvent
 
 # Detect environment
 ENV = "development" if os.getenv("FLASK_DEBUG") == "1" else "production"
@@ -27,8 +28,7 @@ app.config['SECRET_KEY'] = os.environ.get('FLASK_APP_KEY', 'change-this-in-prod'
 # ===================== CORS (Global) =====================
 # Define el origen del frontend (puedes setearlo en .env del backend)
 FRONTEND_ORIGIN = os.getenv(
-    "FRONTEND_ORIGIN",
-    "https://friendly-space-goggles-r466vpgq474jfpr9j-3000.app.github.dev"
+    "FRONTEND_ORIGIN"
 )
 
 # Habilita CORS para todas las rutas /api/*
@@ -70,6 +70,7 @@ setup_commands(app)
 
 # Register API blueprint
 app.register_blueprint(api, url_prefix='/api')
+app.register_blueprint(apiEvent, url_prefix='/api')
 
 
 # Handle/serialize known API errors
