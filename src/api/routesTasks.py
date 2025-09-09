@@ -6,23 +6,7 @@ from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
 from models import db, User, Personaje, Planeta, Favorito, Task
-# from models import Person
 
-app = Flask(__name__)
-app.url_map.strict_slashes = False
-
-db_url = os.getenv("DATABASE_URL")
-if db_url is not None:
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace(
-        "postgres://", "postgresql://")
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:////tmp/test.db"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-MIGRATE = Migrate(app, db)
-db.init_app(app)
-CORS(app)
-setup_admin(app)
 
 # Handle/serialize errors like a JSON object
 
@@ -113,7 +97,4 @@ def update_task(user_id, task_id):
 
 
 
-# this only runs if `$ python src/app.py` is executed
-if __name__ == '__main__':
-    PORT = int(os.environ.get('PORT', 3000))
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+
