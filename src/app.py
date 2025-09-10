@@ -34,7 +34,7 @@ FRONTEND_ORIGIN = os.getenv(
 # Habilita CORS para todas las rutas /api/*
 CORS(
     app,
-    resources={r"/api/*": {"origins": [FRONTEND_ORIGIN]}},
+    resources={r"api/*": {"origins": [FRONTEND_ORIGIN]}},
     supports_credentials=False  # Si no usas cookies/sesiones, déjalo en False
 )
 
