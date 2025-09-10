@@ -17,7 +17,7 @@ const tasks = {
     ],
 };
 
-export default function Tareas() {
+export default function Tasks() {
     {/*Variable de estado que controla si es visible o no*/ }
     const [showFilterPopup, setShowFilterPopup] = useState(false);
     {/*Variable de estaddo que controla si estan marcados los checkbox*/ }
@@ -205,7 +205,7 @@ export default function Tareas() {
                 }
                 
                 .circular-checkbox:checked::after {
-                    content: '✓';
+                    content: '';
                     position: absolute;
                     color: white;
                     font-size: 12px;

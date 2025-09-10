@@ -1,7 +1,7 @@
 import React, { useEffect } from "react"
 import rigoImageUrl from "../assets/img/rigo-baby.jpg";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
-import Tareas from "./Tasks.jsx";
+import Tasks from "./Tasks.jsx";
 
 export const Home = () => {
 
@@ -35,7 +35,7 @@ export const Home = () => {
 
   return (
     <>
-      <Tareas />
+      <Tasks />
     </>
   );
 }; 
