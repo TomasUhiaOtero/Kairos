@@ -11,6 +11,7 @@ const tasks = {
     ],
     conFecha: {
         "Lunes, 25 de agosto": [{ id: 4, text: "Hacer la cama", color: "text-green-600", repeat: true }],
+        "Jueves, 12 de septiembre": [{ id: 8, text: "Viajar a Madrid", color: "text-pink-600", repeat: false }],
     },
     sinFecha: [
         { id: 5, text: "Leer un libro", color: "text-blue-600" },
@@ -78,14 +79,15 @@ export default function Tasks() {
                 )}
 
                 {/* Sección con fecha */}
-                {activeFilters.conFecha && Object.entries(tasks.conFecha).map(([date, taskList]) => (
-                    <TasksSection key={date} title={date}>
-                        {taskList.map((task) => (
-                            <TaskItem key={task.id} {...task} />
-                        ))}
-                    </TasksSection>
-                ))}
-
+                <div>
+                    {activeFilters.conFecha && Object.entries(tasks.conFecha).map(([date, taskList]) => (
+                        <TasksSection key={date} title={date}>
+                            {taskList.map((task) => (
+                                <TaskItem key={task.id} {...task} />
+                            ))}
+                        </TasksSection>
+                    ))}
+                </div>
                 {/* Sección Sin fecha */}
                 {activeFilters.sinFecha && (
                     <TasksSection title="Sin fecha">
@@ -187,7 +189,7 @@ export default function Tasks() {
             )}
 
             {/* Estilos CSS personalizados */}
-            <style jsx>{`
+            <style>{`
                 .circular-checkbox {
                     appearance: none;
                     -webkit-appearance: none;
