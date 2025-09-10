@@ -1,7 +1,7 @@
 import React, { useEffect } from "react"
 import rigoImageUrl from "../assets/img/rigo-baby.jpg";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
-import Tasks from "./Tasks.jsx";
+import Tasks from "../components/Tasks.jsx";
 
 export const Home = () => {
 

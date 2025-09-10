@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import TasksSection from './TasksSection';
+import TaskItem from './TaskItem';
 
 {/*Arrays de ejemplo*/ }
 const tasks = {
@@ -65,34 +67,34 @@ export default function Tasks() {
             </div>
 
             {/* Contenedor general */}
-            <div className="w-full max-w-2xl border border-gray-300 shadow-md rounded-2xl bg-white p-10 space-y-10">
+            <div className="w-full max-w-2xl border border-gray-300 shadow-md rounded-2xl bg-white p-10 space-y-20">
                 {/* Sección Atrasado */}
                 {activeFilters.atrasado && (
-                    <Section title="Atrasado">
+                    <TasksSection title="Atrasado">
                         {tasks.atrasado.map((task) => (
                             <TaskItem key={task.id} {...task} />
                         ))}
-                    </Section>
+                    </TasksSection>
                 )}
 
                 {/* Sección con fecha */}
                 {activeFilters.conFecha && Object.entries(tasks.conFecha).map(([date, taskList]) => (
-                    <Section key={date} title={date}>
+                    <TasksSection key={date} title={date}>
                         {taskList.map((task) => (
                             <TaskItem key={task.id} {...task} />
                         ))}
-                    </Section>
+                    </TasksSection>
                 ))}
 
                 {/* Sección Sin fecha */}
                 {activeFilters.sinFecha && (
-                    <Section title="Sin fecha">
+                    <TasksSection title="Sin fecha">
                         {tasks.sinFecha.length > 0 ? (
                             tasks.sinFecha.map((task) => <TaskItem key={task.id} {...task} />)
                         ) : (
                             <div className="text-gray-400 text-sm p-4">No hay tareas</div>
                         )}
-                    </Section>
+                    </TasksSection>
                 )}
 
                 {/* Mensaje cuando no hay filtros activos */}
@@ -223,40 +225,5 @@ export default function Tasks() {
     );
 }
 
-function Section({ title, children }) {
-    return (
-        <div className="w-full">
-            <h2 className="text-md font-medium text-gray-600 mb-2">{title}</h2>
-            <div className="bg-white shadow-md rounded-2xl p-4 min-h-[80px]">
-                {children}
-            </div>
-        </div>
-    );
-}
 
-function TaskItem({ text, color, repeat }) {
-    const [isChecked, setIsChecked] = useState(false);
 
-    const handleCheckboxChange = (e) => {
-        setIsChecked(e.target.checked);
-    };
-
-    return (
-        <div className="flex items-center gap-3 py-1">
-            {/* Checkbox circular personalizado */}
-            <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={handleCheckboxChange}
-                className={`circular-checkbox ${color.replace("text", "border")} ${color}`}
-            />
-            <span
-                className={`${color} text-md transition-all duration-200 ${isChecked ? 'line-through text-gray-400' : ''
-                    }`}
-            >
-                {text}
-            </span>
-            {repeat && <span className="text-gray-400 text-base">🔁</span>}
-        </div>
-    );
-}
