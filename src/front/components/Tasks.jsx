@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TasksSection from './TasksSection';
 import TaskItem from './TaskItem';
+import { Link } from 'react-router-dom';
 
 {/*Arrays de ejemplo*/ }
 const tasks = {
@@ -58,6 +59,13 @@ export default function Tasks() {
 
             {/* Encabezado */}
             <div className="relative w-full max-w-lg mb-4 flex items-center">
+                {/* Botón Calendario (izquierda con Link) */}
+                <Link
+                    to="/calendario"
+                    className="absolute left-0 top-3 text-sky-600 text-sm hover:text-sky-800 transition-colors"
+                >
+                    Inicio
+                </Link>
                 <h1 className="text-2xl font-bold mx-auto">Tareas</h1>
                 <button
                     onClick={() => setShowFilterPopup(true)}
