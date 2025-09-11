@@ -9,7 +9,6 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from functools import wraps
 from datetime import datetime   # ⬅️ agregado para last_session
 
-
 api = Blueprint('api', __name__)
 
 # ------------------- Helpers -------------------
@@ -154,3 +153,47 @@ def profile(auth_payload):
     if not user:
         raise APIException("Usuario no encontrado", 404)
     return jsonify({"user": user_to_public(user)}), 200
+
+
+# ------------------- Recuperación de contraseña -------------------
+
+@api.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        raise APIException("Email requerido", 400)
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"message": "Si el email existe, te enviaremos instrucciones."}), 200
+
+    token = create_token({"user_id": user.id, "email": user.email, "scope": "reset"})
+
+    return jsonify({
+        "message": "Si el email existe, te enviaremos instrucciones.",
+        "reset_token_dev_only": token  
+    }), 200
+
+
+@api.route('/reset-password', methods=['POST'])
+def reset_password():
+    data = request.get_json() or {}
+    token = (data.get("token") or "").strip()
+    new_password = (data.get("password") or "").strip()
+
+    if not token or not new_password:
+        raise APIException("Token y nueva contraseña son requeridos", 400)
+
+    payload = verify_token(token, max_age_seconds=60 * 60)
+    if payload.get("scope") != "reset":
+        raise APIException("Token inválido para reset", 401)
+
+    user = User.query.get(payload.get("user_id"))
+    if not user:
+        raise APIException("Usuario no encontrado", 404)
+
+    user.set_password(new_password)
+    db.session.commit()
+
+    return jsonify({"message": "Contraseña actualizada correctamente"}), 200
