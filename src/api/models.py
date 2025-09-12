@@ -56,7 +56,7 @@ class User(db.Model):
     def serialize(self):
         return {
             "id": self.id,
-            "displayName": self.displayName,
+            "display_name": self.display_name,
             "name": self.name,
             "email": self.email,
             "signup_date": self.signup_date.isoformat() if self.signup_date else None,
@@ -149,7 +149,7 @@ class Group(db.Model):
     tasks = relationship("Task", back_populates="group",
                          cascade="all, delete-orphan")
 
-    def serialize(self):
+    def serialize_with_tasks(self):
         return {
             "id": self.id,
             "user_id": self.user_id,
