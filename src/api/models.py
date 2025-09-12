@@ -25,8 +25,10 @@ class User(db.Model):
     last_session: Mapped[datetime] = mapped_column(DateTime)
     status: Mapped[bool] = mapped_column(Boolean, default=True)
     google_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=True)
-    google_refresh_token: Mapped[str] = mapped_column(String(255), nullable=True)
-    google_access_token: Mapped[str] = mapped_column(String(255), nullable=True)
+    google_refresh_token: Mapped[str] = mapped_column(
+        String(255), nullable=True)
+    google_access_token: Mapped[str] = mapped_column(
+        String(255), nullable=True)
 
     # Relaciones
     events = relationship("Event", back_populates="user",
@@ -35,6 +37,8 @@ class User(db.Model):
                          cascade="all, delete-orphan")
     groups = relationship("Group", back_populates="user",
                           cascade="all, delete-orphan")
+    calendars = relationship(
+        "Calendar", back_populates="user", cascade="all, delete-orphan")
 
     def set_password(self, password):
         self.password = generate_password_hash(password)
@@ -76,10 +80,13 @@ class Event(db.Model):
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     description: Mapped[str] = mapped_column(Text)
     color: Mapped[str] = mapped_column(String(50))
+    calendar_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('calendar.id'))
 
     # Relaciones
     user = relationship("User", back_populates="events")
     group = relationship("Group", back_populates="events")  # N:1 hacia Group
+    calendar = relationship("Calendar", back_populates="events")
 
     def serialize(self):
         return {
@@ -106,10 +113,13 @@ class Task(db.Model):
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     recurrencia: Mapped[int] = mapped_column(Integer, default=0)
     color: Mapped[str] = mapped_column(String(50))
+    calendar_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('calendar.id'))
 
     # Relaciones
     user = relationship("User", back_populates="tasks")
     group = relationship("Group", back_populates="tasks")  # N:1 hacia Group
+    calendar = relationship("Calendar", back_populates="tasks")
 
     def serialize(self):
         return {
@@ -144,7 +154,31 @@ class Group(db.Model):
             "id": self.id,
             "user_id": self.user_id,
             "title": self.title,
-            "color": self.color
+            "color": self.color,
+            "tasks": [task.serialize() for task in self.tasks]
         }
 
 
+class Calendar(db.Model):
+    __tablename__ = 'calendar'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('user.id'), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    color: Mapped[str] = mapped_column(String(50))
+
+    # Relaciones
+    user = relationship("User", back_populates="calendars")
+    events = relationship("Event", back_populates="calendar",
+                          cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="calendar",
+                         cascade="all, delete-orphan")
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "title": self.title,
+            "color": self.color
+        }
