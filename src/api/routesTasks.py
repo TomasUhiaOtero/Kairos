@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify, url_for, Blueprint
 from flask_migrate import Migrate
 from flask_swagger import swagger
 from flask_cors import CORS
@@ -9,6 +9,7 @@ from models import db, User, Event, Task, Group
 
 
 app = Flask(__name__)
+apiEvent = Blueprint('apiEvent', __name__)
 
 # Handle/serialize errors like a JSON object
 
@@ -62,6 +63,7 @@ def create_task(user_id):
 
 # Eliminar una tarea de un usuario
 
+
 @app.route("/api/users/<int:user_id>/tasks/<int:task_id>", methods=["DELETE"])
 def delete_task(user_id, task_id):
     task = Task.query.filter_by(id=task_id, user_id=user_id).first()
@@ -73,6 +75,7 @@ def delete_task(user_id, task_id):
     return jsonify({"msg": "Tarea eliminada correctamente"}), 200
 
 # Actualizar una tarea de un usuario
+
 
 @app.route("/api/users/<int:user_id>/tasks/<int:task_id>", methods=["PUT"])
 def update_task(user_id, task_id):
@@ -90,7 +93,3 @@ def update_task(user_id, task_id):
 
     db.session.commit()
     return jsonify(task.serialize()), 200
-
-
-
-
