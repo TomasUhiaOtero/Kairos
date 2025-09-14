@@ -88,10 +88,24 @@ export const Login = () => {
           </form>
         </div>
 
+        {/* 🔹 enlaces extra debajo del formulario */}
         <p className="text-center text-sm text-slate-500 mt-6">
           ¿No tienes cuenta?{" "}
-          <a href="/signup" className="text-sky-600 hover:text-sky-700 underline-offset-2 hover:underline">
+          <a
+            href="/signup"
+            className="text-sky-600 hover:text-sky-700 underline-offset-2 hover:underline"
+          >
             Crea una
+          </a>
+        </p>
+
+        <p className="text-center text-sm text-slate-500 mt-2">
+          ¿Olvidaste tu contraseña?{" "}
+          <a
+            href="/forgot"
+            className="text-sky-600 hover:text-sky-700 underline-offset-2 hover:underline"
+          >
+            Recupérala
           </a>
         </p>
       </div>

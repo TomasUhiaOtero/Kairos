@@ -25,8 +25,8 @@ export const Signup = () => {
       const backend = import.meta.env.VITE_BACKEND_URL;
       if (!backend) throw new Error("Falta VITE_BACKEND_URL en .env");
 
-      const base = backend.replace(/\/+$/, "");
-      const resp = await fetch(`${base}/api/signup`, {
+      // const base = backend.replace(/\/+$/, "");
+      const resp = await fetch(`${backend}api/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
