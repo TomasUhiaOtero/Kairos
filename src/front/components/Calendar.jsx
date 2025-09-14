@@ -34,7 +34,7 @@ const Calendar = () => {
             }
         } else {
             start = `${item.startDate}T${item.startTime || "09:00"}`;
-            end = start;
+            end = `${item.startDate}T${item.startTime || "09:00"}`;
         }
         return { ...item, start, end };
     };
@@ -129,6 +129,17 @@ const Calendar = () => {
                 type: itemType === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK",
                 payload: { ...existing, ...updatedItem }
             });
+        }
+        if (type === 'task') {
+            const task = store.tasks.find(t => t.id === id);
+            if (task) {
+                const updatedTask = {
+                    ...task,
+                    startDate: getLocalDateString(start),
+                    endDate: getLocalDateString(start),
+                };
+                dispatch({ type: "UPDATE_TASK", payload: updatedTask });
+            }
         }
     };
 
@@ -278,7 +289,7 @@ const Calendar = () => {
                         start,
                         end,
                         title: item.title,
-                        allDay: item.allDay || (type === 'task'),
+                        allDay: item.allDay ?? false, // <-- nunca forzar true para tareas
                         backgroundColor: colors.background,
                         borderColor: colors.border,
                         textColor: colors.text,
