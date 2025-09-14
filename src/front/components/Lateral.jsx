@@ -1,5 +1,6 @@
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
 import React, { useState } from "react";
+
 export const Lateral = ({ onClose }) => {
     const { store, dispatch } = useGlobalReducer()
     const [createCalendar, setCreateCalendar] = useState(false);
@@ -7,13 +8,13 @@ export const Lateral = ({ onClose }) => {
 
     const [title, setTitle] = useState("");
     const [color, setColor] = useState("#ff0000");
-    const [editingIndex, setEditingIndex] = useState(null); // índice del item que se edita
+    const [editingId, setEditingId] = useState(null); // ID del item que se edita
     const [editingType, setEditingType] = useState(""); // 'calendar' o 'task'
 
     const resetForm = () => {
         setTitle("");
         setColor("#ff0000");
-        setEditingIndex(null);
+        setEditingId(null);
         setEditingType("");
         setCreateCalendar(false);
         setCreateTask(false);
@@ -26,40 +27,47 @@ export const Lateral = ({ onClose }) => {
     };
     const handleTitleChange = (e) => setTitle(e.target.value);
 
+    // Generar ID único
+    const generateId = () => Date.now() + Math.random();
+
     // Guardar calendario (crear o editar)
     const handleSubmitCalendar = (e) => {
         e.preventDefault();
         if (!title) return;
 
-        if (editingIndex !== null && editingType === "calendar") {
+        if (editingId !== null && editingType === "calendar") {
+            // Editar calendario existente
             dispatch({
                 type: "UPDATE_CALENDAR",
-                payload: { id: editingIndex, title, color },
+                payload: { id: editingId, title, color },
             });
         } else {
+            // Crear nuevo calendario
             dispatch({
                 type: "ADD_CALENDAR",
-                payload: { id: store.calendar.length, title, color },
+                payload: { id: generateId(), title, color },
             });
         }
 
         resetForm();
     };
 
-    // Guardar tarea (crear o editar)
+    // Guardar grupo de tareas (crear o editar)
     const handleSubmitTask = (e) => {
         e.preventDefault();
         if (!title) return;
 
-        if (editingIndex !== null && editingType === "task") {
+        if (editingId !== null && editingType === "task") {
+            // Editar grupo de tareas existente
             dispatch({
                 type: "UPDATE_TASKGROUP",
-                payload: { id: editingIndex, title, color },
+                payload: { id: editingId, title, color },
             });
         } else {
+            // Crear nuevo grupo de tareas
             dispatch({
                 type: "ADD_TASKGROUP",
-                payload: { id: store.taskGroup.length, title, color },
+                payload: { id: generateId(), title, color },
             });
         }
 
@@ -67,37 +75,24 @@ export const Lateral = ({ onClose }) => {
     };
 
     // Editar item
-    const handleEdit = (index, type) => {
-        const item = type === "calendar" ? store.calendar[index] : store.taskGroup[index];
+    const handleEdit = (item, type) => {
         setTitle(item.title);
         setColor(item.color);
-        setEditingIndex(index);
+        setEditingId(item.id); // Usar el ID real, no el índice
         setEditingType(type);
         if (type === "calendar") setCreateCalendar(true);
         else setCreateTask(true);
     };
 
     // Borrar item
-
-    const handleDelete = (index, type) => {
+    const handleDelete = (item, type) => {
         if (type === "calendar") {
-            const calendarId = store.calendar[index].id;
-
-            // Eliminar eventos asignados a ese calendario
-            setItems(prev => prev.filter(item => item.type !== 'event' || item.calendarId !== calendarId));
-
-            // Eliminar calendario
-            dispatch({ type: "DELETE_CALENDAR", payload: { id: calendarId } });
+            dispatch({ type: "DELETE_CALENDAR", payload: { id: item.id } });
         } else {
-            const groupId = store.taskGroup[index].id;
-
-            // Eliminar tareas asignadas a ese grupo
-            setItems(prev => prev.filter(item => item.type !== 'task' || item.groupId !== groupId));
-
-            // Eliminar grupo
-            dispatch({ type: "DELETE_TASKGROUP", payload: { id: groupId } });
+            dispatch({ type: "DELETE_TASKGROUP", payload: { id: item.id } });
         }
     };
+
     return (
         <div className="fixed inset-y-0 right-0 w-80 bg-gray-50 shadow-xl border-l border-gray-200 z-50">
             {/* Header */}
@@ -125,25 +120,25 @@ export const Lateral = ({ onClose }) => {
                     </div>
                     <div className="space-y-2">
                         {store.calendar.length === 0 && <p className="text-sm text-gray-500">No hay calendarios aún</p>}
-                        {store.calendar.map((cal, index) => (
-                            <div key={index} className="flex items-center justify-between">
+                        {store.calendar.map((cal) => (
+                            <div key={cal.id} className="flex items-center justify-between">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cal.color }}></div>
                                     <span className="text-sm text-gray-700">{cal.title}</span>
                                 </div>
                                 <div className="flex space-x-1">
-                                    <button onClick={() => handleEdit(index, "calendar")} className="text-blue-500 text-xs">Editar</button>
-                                    <button onClick={() => handleDelete(index, "calendar")} className="text-red-500 text-xs">Borrar</button>
+                                    <button onClick={() => handleEdit(cal, "calendar")} className="text-blue-500 text-xs">Editar</button>
+                                    <button onClick={() => handleDelete(cal, "calendar")} className="text-red-500 text-xs">Borrar</button>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* Tareas */}
+                {/* Grupos de Tareas */}
                 <div>
                     <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-gray-900">Tareas</h3>
+                        <h3 className="text-sm font-semibold text-gray-900">Grupos de Tareas</h3>
                         <button className="text-gray-400 hover:text-gray-600" onClick={() => setCreateTask(true)}>
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -151,16 +146,16 @@ export const Lateral = ({ onClose }) => {
                         </button>
                     </div>
                     <div className="space-y-2">
-                        {store.taskGroup.length === 0 && <p className="text-sm text-gray-500">No hay tareas aún</p>}
-                        {store.taskGroup.map((task, index) => (
-                            <div key={index} className="flex items-center justify-between">
+                        {store.taskGroup.length === 0 && <p className="text-sm text-gray-500">No hay grupos de tareas aún</p>}
+                        {store.taskGroup.map((group) => (
+                            <div key={group.id} className="flex items-center justify-between">
                                 <div className="flex items-center space-x-3">
-                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: task.color }}></div>
-                                    <span className="text-sm text-gray-700">{task.title}</span>
+                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }}></div>
+                                    <span className="text-sm text-gray-700">{group.title}</span>
                                 </div>
                                 <div className="flex space-x-1">
-                                    <button onClick={() => handleEdit(index, "task")} className="text-blue-500 text-xs">Editar</button>
-                                    <button onClick={() => handleDelete(index, "task")} className="text-red-500 text-xs">Borrar</button>
+                                    <button onClick={() => handleEdit(group, "task")} className="text-blue-500 text-xs">Editar</button>
+                                    <button onClick={() => handleDelete(group, "task")} className="text-red-500 text-xs">Borrar</button>
                                 </div>
                             </div>
                         ))}
@@ -201,10 +196,10 @@ export const Lateral = ({ onClose }) => {
                 </div>
             )}
 
-            {/* Formulario Crear/Editar Tarea */}
+            {/* Formulario Crear/Editar Grupo de Tareas */}
             {createTask && (
                 <div className="card p-4 border rounded bg-white absolute top-20 left-4 w-72 shadow-lg">
-                    <h3 className="font-semibold mb-2">{editingType === "task" ? "Editar tarea" : "Crear tarea"}</h3>
+                    <h3 className="font-semibold mb-2">{editingType === "task" ? "Editar grupo de tareas" : "Crear grupo de tareas"}</h3>
                     <form onSubmit={handleSubmitTask} className="space-y-3">
                         <div className="flex flex-col">
                             <label>Título:</label>

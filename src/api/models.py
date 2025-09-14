@@ -149,7 +149,6 @@ class TaskGroup(db.Model):
 
     user = relationship("User", back_populates="task_groups")
     tasks = relationship("Task", back_populates="task_group", cascade="all, delete-orphan")
-    events = relationship("Event", back_populates="task_group")  # 🔹 Enlace opcional con eventos
 
     def serialize(self):
         return {
@@ -168,7 +167,6 @@ class Calendar(db.Model):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     color: Mapped[str] = mapped_column(String(50))
 
-    # 🔹 Para sincronizar con Google
     google_calendar_id: Mapped[str] = mapped_column(String(255), nullable=True)
 
     user = relationship("User", back_populates="calendars")

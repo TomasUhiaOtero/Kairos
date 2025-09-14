@@ -12,9 +12,33 @@ const Calendar = () => {
     const calendarRef = useRef(null);
     const [popover, setPopover] = useState(null);
     const [title, setTitle] = useState('');
-    const [items, setItems] = useState([]);
 
-    // Función para obtener colores desde el store
+    // --- Utilidades ---
+    const getLocalDateString = (date) => {
+        const d = new Date(date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const formatItemDates = (item) => {
+        let start, end;
+        if (item.type === "event") {
+            if (item.allDay) {
+                start = item.startDate;
+                end = item.endDate || undefined; // No sumar días
+            } else {
+                start = `${item.startDate}T${item.startTime || "09:00"}`;
+                end = `${item.endDate || item.startDate}T${item.endTime || "10:00"}`;
+            }
+        } else {
+            start = `${item.startDate}T${item.startTime || "09:00"}`;
+            end = start;
+        }
+        return { ...item, start, end };
+    };
+
     const getCalendarsColors = () => {
         const obj = {};
         store.calendar.forEach(cal => {
@@ -42,85 +66,78 @@ const Calendar = () => {
     const calendarsColors = getCalendarsColors();
     const taskGroupsColors = getTaskGroupsColors();
 
-    // crear/editar items
+    // --- CRUD ---
     const handleAddItem = (item) => {
-        if (!item.title?.trim()) {
-            console.error("Título vacío");
-            return;
-        }
+        if (!item.title?.trim()) return;
 
-        // Fecha por defecto si no viene
-        const today = new Date().toISOString().split('T')[0];
-        const startDate = item.startDate || today;
-        const endDate = item.endDate || startDate;
-
-        let start, end, allDay;
-
-        if (item.type === 'task') {
-            // Si la tarea tiene hora, la usamos
-            if (item.startTime) {
-                start = new Date(`${startDate}T${item.startTime}`);
-                end = new Date(start.getTime() + 30 * 60 * 1000); // duración 30 min
-                allDay = false;
-            } else {
-                // Si no tiene hora, marcar como todo el día
-                start = new Date(`${startDate}T00:00:00`);
-                end = new Date(`${startDate}T23:59:59`);
-                allDay = true;
-            }
-        } else { // evento
-            if (item.allDay) {
-                start = new Date(`${startDate}T00:00:00`);
-                end = new Date(`${endDate}T23:59:59`);
-                allDay = true;
-            } else {
-                start = new Date(`${startDate}T${item.startTime || '09:00'}`);
-                end = new Date(`${endDate}T${item.endTime || '10:00'}`);
-                allDay = false;
-            }
-        }
-
-        const newItem = {
+        const formattedItem = formatItemDates({
             ...item,
             id: item.id || Date.now() + Math.random(),
-            start: start.toISOString(),
-            end: end.toISOString(),
-            allDay,
+        });
+
+        if (item.type === 'event') {
+            dispatch({
+                type: item.id ? "UPDATE_EVENT" : "ADD_EVENT",
+                payload: formattedItem
+            });
+        } else if (item.type === 'task') {
+            dispatch({
+                type: item.id ? "UPDATE_TASK" : "ADD_TASK",
+                payload: formattedItem
+            });
+        }
+
+        setPopover(null);
+    };
+
+    const handleDeleteItem = (itemId, itemType) => {
+        if (!itemId) return;
+        dispatch({ type: itemType === 'event' ? "DELETE_EVENT" : "DELETE_TASK", payload: itemId });
+        setPopover(null);
+    };
+
+    const toggleTaskDone = (taskId) => {
+        const existingTask = store.tasks.find(t => t.id === taskId);
+        if (existingTask) {
+            dispatch({
+                type: "UPDATE_TASK",
+                payload: { ...existingTask, done: !existingTask.done }
+            });
+        }
+    };
+
+    // --- Drag & Resize ---
+    const handleEventDrop = (info) => {
+        const { id, start, end, allDay } = info.event;
+        const itemType = info.event.extendedProps.type;
+
+        const updatedItem = {
+            id,
+            startDate: getLocalDateString(start),
+            endDate: end ? getLocalDateString(end) : getLocalDateString(start),
+            startTime: !allDay && start ? start.toTimeString().slice(0, 5) : '',
+            endTime: !allDay && end ? end.toTimeString().slice(0, 5) : '',
+            allDay: itemType === 'event' ? allDay : false,
         };
 
-        setItems(prev => {
-            const exists = prev.find(i => i.id === newItem.id);
-            if (exists) return prev.map(i => i.id === newItem.id ? newItem : i);
-            return [...prev, newItem];
-        });
+        const existing = itemType === 'event'
+            ? store.events.find(e => e.id === id)
+            : store.tasks.find(t => t.id === id);
 
-        setPopover(null);
+        if (existing) {
+            dispatch({
+                type: itemType === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK",
+                payload: { ...existing, ...updatedItem }
+            });
+        }
     };
 
+    const handleEventResize = handleEventDrop; // mismo manejo
 
-
-
-    //  eliminar items
-    const handleDeleteItem = (itemId) => {
-        console.log("Eliminando item:", itemId);
-
-        setItems(prev => {
-            const newItems = prev.filter(item => item.id !== itemId);
-            console.log("Items después de eliminar:", newItems.length);
-            return newItems;
-        });
-
-        setPopover(null);
-    };
-
-    // Click en día vacío
+    // --- Popover ---
     const handleDateClick = (arg) => {
-        console.log("Click en fecha:", arg.dateStr);
-
         const rect = arg.dayEl.getBoundingClientRect();
-        let popoverWidth = 300;
-        let popoverHeight = 400;
-
+        let popoverWidth = 300, popoverHeight = 400;
         let x = rect.left + rect.width / 2 - popoverWidth / 2;
         let y = rect.top - popoverHeight - 10;
         if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
@@ -128,8 +145,7 @@ const Calendar = () => {
         if (y < 0) y = rect.bottom + 10;
 
         setPopover({
-            x,
-            y,
+            x, y,
             item: {
                 type: 'event',
                 startDate: arg.dateStr,
@@ -140,46 +156,14 @@ const Calendar = () => {
         });
     };
 
-    // Click en evento existente
-    const handleEventClick = (clickInfo) => {
-        console.log("Click en evento:", clickInfo.event.extendedProps);
+    // --- Toolbar ---
+    const updateTitle = () => setTitle(calendarRef.current?.getApi().view.title || '');
+    const goPrev = () => { calendarRef.current?.getApi().prev(); updateTitle(); };
+    const goNext = () => { calendarRef.current?.getApi().next(); updateTitle(); };
+    const goToday = () => { calendarRef.current?.getApi().today(); updateTitle(); };
+    const handleViewChange = (e) => { calendarRef.current?.getApi().changeView(e.target.value); updateTitle(); };
 
-        const item = clickInfo.event.extendedProps;
-        const rect = clickInfo.jsEvent.target.getBoundingClientRect();
-        let popoverWidth = 300;
-        let popoverHeight = 400;
-
-        let x = rect.left + rect.width / 2 - popoverWidth / 2;
-        let y = rect.top - popoverHeight - 10;
-        if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
-        if (x < 0) x = 10;
-        if (y < 0) y = rect.bottom + 10;
-
-        // Convertir las fechas del evento a formato para inputs
-        const eventStart = clickInfo.event.start;
-        const eventEnd = clickInfo.event.end;
-
-        const itemWithDates = {
-            ...item,
-            startDate: eventStart ? eventStart.toISOString().split('T')[0] : item.startDate,
-            endDate: eventEnd ? eventEnd.toISOString().split('T')[0] : item.endDate,
-            startTime: eventStart && !clickInfo.event.allDay ?
-                eventStart.toTimeString().slice(0, 5) : item.startTime,
-            endTime: eventEnd && !clickInfo.event.allDay ?
-                eventEnd.toTimeString().slice(0, 5) : item.endTime,
-        };
-
-        setPopover({ x, y, item: itemWithDates });
-    };
-
-    // Toggle estado de tarea completada
-    const toggleTaskDone = (taskId) => {
-        console.log("Toggle task done:", taskId);
-        setItems(prev => prev.map(i => i.id === taskId ? { ...i, done: !i.done } : i));
-    };
-
-    // Renderizar contenido del evento
-    // Renderizar eventos
+    // --- Renderizado ---
     const renderEventContent = (eventInfo) => {
         const { type, groupId, done, id, extendedStartTime } = eventInfo.event.extendedProps;
         const isAllDay = eventInfo.event.allDay;
@@ -206,7 +190,7 @@ const Calendar = () => {
             );
         } else {
             const startTimeDisplay = !isAllDay && eventInfo.event.start
-                ? eventInfo.event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                ? eventInfo.event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
                 : '';
             return (
                 <div style={{ padding: '4px 6px' }}>
@@ -216,42 +200,52 @@ const Calendar = () => {
             );
         }
     };
+    const handleEventClick = (clickInfo) => {
+        const { event } = clickInfo;
+        const rect = clickInfo.jsEvent.target.getBoundingClientRect();
 
+        let popoverWidth = 300, popoverHeight = 400;
+        let x = rect.left + rect.width / 2 - popoverWidth / 2;
+        let y = rect.top - popoverHeight - 10;
+        if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
+        if (x < 0) x = 10;
+        if (y < 0) y = rect.bottom + 10;
 
-
-
-    // Cerrar popover al hacer click fuera
+        setPopover({
+            x, y,
+            item: {
+                id: event.id,
+                title: event.title,
+                type: event.extendedProps.type,
+                startDate: getLocalDateString(event.start),
+                endDate: event.end ? getLocalDateString(event.end) : getLocalDateString(event.start),
+                startTime: !event.allDay && event.start ? event.start.toTimeString().slice(0, 5) : '',
+                endTime: !event.allDay && event.end ? event.end.toTimeString().slice(0, 5) : '',
+                allDay: event.allDay,
+                calendarId: event.extendedProps.calendarId,
+                groupId: event.extendedProps.groupId,
+                done: event.extendedProps.done || false,
+                ...event.extendedProps
+            }
+        });
+    };
     useEffect(() => {
         const closePopover = (e) => {
-            if (popover && !e.target.closest('.popover-form')) {
-                setPopover(null);
-            }
+            if (popover && !e.target.closest('.popover-form')) setPopover(null);
         };
         document.addEventListener('mousedown', closePopover);
         return () => document.removeEventListener('mousedown', closePopover);
     }, [popover]);
 
-    // Funciones del toolbar
-    const updateTitle = () => setTitle(calendarRef.current?.getApi().view.title || '');
-    const goPrev = () => { calendarRef.current?.getApi().prev(); updateTitle(); };
-    const goNext = () => { calendarRef.current?.getApi().next(); updateTitle(); };
-    const goToday = () => { calendarRef.current?.getApi().today(); updateTitle(); };
-    const handleViewChange = (e) => { calendarRef.current?.getApi().changeView(e.target.value); updateTitle(); };
-
-    // Debug: mostrar items en consola
-    useEffect(() => {
-        console.log("Items actuales:", items.length, items);
-    }, [items]);
+    const allItems = [
+        ...store.events.map(event => ({ ...event, type: 'event' })),
+        ...store.tasks.map(task => ({ ...task, type: 'task' }))
+    ];
 
     return (
         <div>
-            {/* Debug info */}
-            <div className="mb-2 text-sm text-muted">
-                Items: {items.length} | Calendarios: {store.calendar.length} | Grupos: {store.taskGroup.length}
-            </div>
-
             <div className="custom-toolbar flex justify-between mb-2">
-                <div className="left-controls flex gap-1">
+                <div className="left-controls flex gap-1 items-center">
                     <button onClick={goPrev} className="fc-button fc-button-primary fc-icon fc-icon-chevron-left" />
                     <button onClick={goToday} className="fc-button fc-button-primary">Hoy</button>
                     <button onClick={goNext} className="fc-button fc-button-primary fc-icon fc-icon-chevron-right" />
@@ -272,24 +266,23 @@ const Calendar = () => {
                 locale={esLocale}
                 headerToolbar={false}
                 footerToolbar={false}
-                editable
-                eventDurationEditable
-                events={items.map(item => {
-                    const { start, end, type, calendarId, groupId, ...rest } = item;
-
+                droppable={true}
+                events={allItems.map(item => {
+                    const formattedItem = formatItemDates(item);
+                    const { start, end, type, calendarId, groupId, ...rest } = formattedItem;
                     const colors = type === 'event'
-                        ? calendarsColors[calendarId] || { background: '#ccc', border: '#888', text: '#000' }
-                        : taskGroupsColors[groupId] || { background: '#fff', border: '#000', text: '#000' };
-
+                        ? calendarsColors[calendarId] || { background: '#f3f4f6', border: '#6b7280', text: '#374151' }
+                        : taskGroupsColors[groupId] || { background: '#f3f4f6', border: '#6b7280', text: '#374151' };
                     return {
+                        id: item.id,
                         start,
                         end,
                         title: item.title,
-                        allDay: item.allDay,
+                        allDay: item.allDay || (type === 'task'),
                         backgroundColor: colors.background,
                         borderColor: colors.border,
                         textColor: colors.text,
-                        extendedProps: rest,
+                        extendedProps: { ...rest, type, calendarId, groupId },
                         display: 'block',
                         startEditable: true,
                         durationEditable: type === 'event',
@@ -299,14 +292,15 @@ const Calendar = () => {
                 displayEventTime
                 eventContent={renderEventContent}
                 dateClick={handleDateClick}
-                eventClick={handleEventClick}
                 selectable
                 datesSet={updateTitle}
                 height="auto"
                 expandRows
                 nowIndicator
                 eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
-                dayMaxEvents={3}
+                eventDrop={handleEventDrop}
+                eventResize={handleEventResize}
+                eventClick={handleEventClick}
             />
 
             {popover && (
@@ -318,7 +312,7 @@ const Calendar = () => {
                         <CreateEvent
                             selectedDate={popover.item.startDate || popover.item.start}
                             onAddItem={handleAddItem}
-                            onDeleteItem={handleDeleteItem}
+                            onDeleteItem={(itemId) => handleDeleteItem(itemId, popover.item.type)}
                             item={popover.item}
                         />
                     </div>
