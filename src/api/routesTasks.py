@@ -1,12 +1,15 @@
 import os
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify, url_for, Blueprint
 from flask_migrate import Migrate
 from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
-from models import db, User, Personaje, Planeta, Favorito, Task
+from models import db, User, Event, Task, Group
 
+
+app = Flask(__name__)
+apiEvent = Blueprint('apiEvent', __name__)
 
 # Handle/serialize errors like a JSON object
 
@@ -26,12 +29,6 @@ def sitemap():
 # AQUI EMPIEZAN MIS RUTAS! --->
 
 # Endpoints
-
-@app.route("/api/users/<int:user_id>/tasks", methods=["GET"])
-def get_user_tasks(user_id):
-    tasks = Task.query.filter_by(user_id=user_id).all()
-    return jsonify([task.serialize() for task in tasks]), 200
-
 
 #  Obtener todas las tareas de un usuario
 
@@ -66,6 +63,7 @@ def create_task(user_id):
 
 # Eliminar una tarea de un usuario
 
+
 @app.route("/api/users/<int:user_id>/tasks/<int:task_id>", methods=["DELETE"])
 def delete_task(user_id, task_id):
     task = Task.query.filter_by(id=task_id, user_id=user_id).first()
@@ -77,6 +75,7 @@ def delete_task(user_id, task_id):
     return jsonify({"msg": "Tarea eliminada correctamente"}), 200
 
 # Actualizar una tarea de un usuario
+
 
 @app.route("/api/users/<int:user_id>/tasks/<int:task_id>", methods=["PUT"])
 def update_task(user_id, task_id):
@@ -94,7 +93,3 @@ def update_task(user_id, task_id):
 
     db.session.commit()
     return jsonify(task.serialize()), 200
-
-
-
-

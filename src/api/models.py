@@ -25,16 +25,22 @@ class User(db.Model):
     last_session: Mapped[datetime] = mapped_column(DateTime)
     status: Mapped[bool] = mapped_column(Boolean, default=True)
     google_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=True)
-    google_refresh_token: Mapped[str] = mapped_column(String(255), nullable=True)
-    google_access_token: Mapped[str] = mapped_column(String(255), nullable=True)
+    google_refresh_token: Mapped[str] = mapped_column(
+        String(255), nullable=True)
+    google_access_token: Mapped[str] = mapped_column(
+        String(255), nullable=True)
 
     # Relaciones
     events = relationship("Event", back_populates="user",
                           cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="user",
                          cascade="all, delete-orphan")
-    calendars = relationship("Calendar", back_populates="user", cascade="all, delete-orphan")
-    task_groups = relationship("TaskGroup", back_populates="user", cascade="all, delete-orphan")
+
+    groups = relationship("Group", back_populates="user",
+                          cascade="all, delete-orphan")
+    calendars = relationship(
+        "Calendar", back_populates="user", cascade="all, delete-orphan")
+
 
     def set_password(self, password):
         self.password = generate_password_hash(password)
@@ -52,7 +58,7 @@ class User(db.Model):
     def serialize(self):
         return {
             "id": self.id,
-            "displayName": self.displayName,
+            "display_name": self.display_name,
             "name": self.name,
             "email": self.email,
             "signup_date": self.signup_date.isoformat() if self.signup_date else None,
@@ -81,6 +87,8 @@ class Event(db.Model):
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     description: Mapped[str] = mapped_column(Text)
     color: Mapped[str] = mapped_column(String(50))
+    calendar_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('calendar.id'))
 
     # 🔹 Sincronización con Google
     google_event_id: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -88,8 +96,10 @@ class Event(db.Model):
 
     # Relaciones
     user = relationship("User", back_populates="events")
+
+    group = relationship("Group", back_populates="events")  # N:1 hacia Group
     calendar = relationship("Calendar", back_populates="events")
-    task_group = relationship("TaskGroup", back_populates="events")
+
 
     def serialize(self):
         return {
@@ -121,10 +131,14 @@ class Task(db.Model):
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     recurrencia: Mapped[int] = mapped_column(Integer, default=0)
     color: Mapped[str] = mapped_column(String(50))
+    calendar_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('calendar.id'))
 
     # Relaciones
     user = relationship("User", back_populates="tasks")
-    task_group = relationship("TaskGroup", back_populates="tasks")
+    group = relationship("Group", back_populates="tasks")  # N:1 hacia Group
+    calendar = relationship("Calendar", back_populates="tasks")
+
 
     def serialize(self):
         return {
@@ -150,12 +164,13 @@ class TaskGroup(db.Model):
     user = relationship("User", back_populates="task_groups")
     tasks = relationship("Task", back_populates="task_group", cascade="all, delete-orphan")
 
-    def serialize(self):
+    def serialize_with_tasks(self):
         return {
             "id": self.id,
             "user_id": self.user_id,
             "title": self.title,
-            "color": self.color
+            "color": self.color,
+            "tasks": [task.serialize() for task in self.tasks]
         }
 
 
@@ -163,20 +178,24 @@ class Calendar(db.Model):
     __tablename__ = 'calendar'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('user.id'), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('user.id'), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     color: Mapped[str] = mapped_column(String(50))
 
-    google_calendar_id: Mapped[str] = mapped_column(String(255), nullable=True)
-
+    # Relaciones
     user = relationship("User", back_populates="calendars")
-    events = relationship("Event", back_populates="calendar", cascade="all, delete-orphan")
+    events = relationship("Event", back_populates="calendar",
+                          cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="calendar",
+                         cascade="all, delete-orphan")
+
 
     def serialize(self):
         return {
             "id": self.id,
             "user_id": self.user_id,
             "title": self.title,
-            "color": self.color,
-            "google_calendar_id": self.google_calendar_id
+            "color": self.color
+
         }

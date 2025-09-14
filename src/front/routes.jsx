@@ -15,9 +15,11 @@ import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
+import Calendario from "./pages/Calendario";
 
 // 👇 Importamos la page provisional de eventos como default
 import EventosPage from "./pages/EventosPage";
+
 
 export const router = createBrowserRouter(
   createRoutesFromElements(
@@ -29,6 +31,11 @@ export const router = createBrowserRouter(
       <Route path="/demo" element={<Demo />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+
+   
+      
+
+      <Route path="/calendario" element={<Calendario />} />
       <Route path="/forgot" element={<ForgotPassword />} />
       <Route path="/reset" element={<ResetPassword />} />
 
