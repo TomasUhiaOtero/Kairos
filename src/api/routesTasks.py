@@ -1,26 +1,11 @@
 import os
-from flask import Flask, request, jsonify, url_for
-from flask_migrate import Migrate
-from flask_swagger import swagger
-from flask_cors import CORS
-from utils import APIException, generate_sitemap
-from admin import setup_admin
-from models import db, User, Task, Group
+from flask import Flask, request, jsonify, url_for, Blueprint
+from api.models import db, User, Task
 from datetime import datetime
+from .routes import api
 
 # Handle/serialize errors like a JSON object
-
-
-@app.errorhandler(APIException)
-def handle_invalid_usage(error):
-    return jsonify(error.to_dict()), error.status_code
-
-# generate sitemap with all your endpoints
-
-
-@app.route('/')
-def sitemap():
-    return generate_sitemap(app)
+task = Blueprint('task', __name__)
 
 
 # AQUI EMPIEZAN MIS RUTAS! --->
@@ -30,7 +15,7 @@ def sitemap():
 
 #  Obtener todas las tareas de un usuario
 
-@app.route("/api/users/<int:user_id>/tasks", methods=["GET"])
+@api.route("/users/<int:user_id>/tasks", methods=["GET"])
 def get_user_tasks(user_id):
     tasks = Task.query.filter_by(user_id=user_id).all()
     return jsonify([task.serialize() for task in tasks]), 200
@@ -38,7 +23,7 @@ def get_user_tasks(user_id):
 
 # Crear nueva tarea para un usuario
 
-@app.route("/api/users/<int:user_id>/tasks", methods=["POST"])
+@api.route("/api/users/<int:user_id>/tasks", methods=["POST"])
 def create_task(user_id):
     data = request.get_json()
 
@@ -62,7 +47,7 @@ def create_task(user_id):
 # Eliminar una tarea de un usuario
 
 
-@app.route("/api/users/<int:user_id>/tasks/<int:task_id>", methods=["DELETE"])
+@api.route("/api/users/<int:user_id>/tasks/<int:task_id>", methods=["DELETE"])
 def delete_task(user_id, task_id):
     task = Task.query.filter_by(id=task_id, user_id=user_id).first()
     if not task:
@@ -75,7 +60,7 @@ def delete_task(user_id, task_id):
 # Actualizar una tarea de un usuario
 
 
-@app.route("/api/users/<int:user_id>/tasks/<int:task_id>", methods=["PUT"])
+@api.route("/api/users/<int:user_id>/tasks/<int:task_id>", methods=["PUT"])
 def update_task(user_id, task_id):
     task = Task.query.filter_by(id=task_id, user_id=user_id).first()
     if not task:
@@ -97,14 +82,14 @@ def update_task(user_id, task_id):
 # Obtener todos los grupos de un usuario con sus tareas
 
 
-@app.route("/api/users/<int:user_id>/groups", methods=["GET"])
+@api.route("/api/users/<int:user_id>/groups", methods=["GET"])
 def get_user_groups(user_id):
     groups = Group.query.filter_by(user_id=user_id).all()
     return jsonify([g.serialize_with_tasks() for g in groups]), 200
 
 
 # Crear un nuevo grupo para un usuario
-@app.route("/api/users/<int:user_id>/groups", methods=["POST"])
+@api.route("/api/users/<int:user_id>/groups", methods=["POST"])
 def create_group(user_id):
     data = request.get_json()
     if "title" not in data:
@@ -122,7 +107,7 @@ def create_group(user_id):
 
 
 # Obtener un grupo específico con sus tareas
-@app.route("/api/users/<int:user_id>/groups/<int:group_id>", methods=["GET"])
+@api.route("/api/users/<int:user_id>/groups/<int:group_id>", methods=["GET"])
 def get_group(user_id, group_id):
     group = Group.query.filter_by(id=group_id, user_id=user_id).first()
     if not group:
@@ -132,7 +117,7 @@ def get_group(user_id, group_id):
 
 
 # Crear una nueva tarea dentro de un grupo
-@app.route("/api/users/<int:user_id>/groups/<int:group_id>/tasks", methods=["POST"])
+@api.route("/api/users/<int:user_id>/groups/<int:group_id>/tasks", methods=["POST"])
 def create_task_in_group(user_id, group_id):
     group = Group.query.filter_by(id=group_id, user_id=user_id).first()
     if not group:
@@ -164,7 +149,7 @@ def create_task_in_group(user_id, group_id):
 # Actualizar un grupo, editar título y color
 
 
-@app.route("/api/users/<int:user_id>/groups/<int:group_id>", methods=["PUT"])
+@api.route("/api/users/<int:user_id>/groups/<int:group_id>", methods=["PUT"])
 def update_group(user_id, group_id):
     group = Group.query.filter_by(id=group_id, user_id=user_id).first()
     if not group:
@@ -180,7 +165,7 @@ def update_group(user_id, group_id):
 
 
 # Eliminar un grupo y sus tasks/events por cascade
-@app.route("/api/users/<int:user_id>/groups/<int:group_id>", methods=["DELETE"])
+@api.route("/api/users/<int:user_id>/groups/<int:group_id>", methods=["DELETE"])
 def delete_group(user_id, group_id):
     group = Group.query.filter_by(id=group_id, user_id=user_id).first()
     if not group:
@@ -192,7 +177,7 @@ def delete_group(user_id, group_id):
 
 
 # Actualizar una tarea dentro de un grupo
-@app.route("/api/users/<int:user_id>/groups/<int:group_id>/tasks/<int:task_id>", methods=["PUT"])
+@api.route("/api/users/<int:user_id>/groups/<int:group_id>/tasks/<int:task_id>", methods=["PUT"])
 def update_task_in_group(user_id, group_id, task_id):
     # Buscar la tarea por user_id, group_id y task_id
     task = Task.query.filter_by(
@@ -223,7 +208,7 @@ def update_task_in_group(user_id, group_id, task_id):
 # Eliminar una tarea dentro de un grupo
 
 
-@app.route("/api/users/<int:user_id>/groups/<int:group_id>/tasks/<int:task_id>", methods=["DELETE"])
+@api.route("/api/users/<int:user_id>/groups/<int:group_id>/tasks/<int:task_id>", methods=["DELETE"])
 def delete_task_in_group(user_id, group_id, task_id):
     # Buscar la tarea por user_id, group_id y task_id
     task = Task.query.filter_by(

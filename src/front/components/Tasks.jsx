@@ -4,6 +4,7 @@ import TaskItem from './TaskItem';
 
 
 export default function Tasks() {
+    const backend = import.meta.env.VITE_BACKEND_URL;
     // Estado para las tareas obtenidas de la API
     const [tasks, setTasks] = useState({
         atrasado: [],
@@ -29,18 +30,18 @@ export default function Tasks() {
     // Función para obtener tareas de la API
     const fetchTasks = async () => {
         try {
+            console.log(backend)
             setLoading(true);
-            const response = await fetch(`/api/users/${userId}/tasks`);
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status}`);
-            }
-
+            const response = await fetch(`${backend}/api/users/${userId}/tasks`);
+           
+             if (!response.ok) {
+                 throw new Error(`Error: ${response.status}`);
+             }
+ 
             const apiTasks = await response.json();
-
-            // Procesar y categorizar las tareas
-            const processedTasks = processTasks(apiTasks);
-            setTasks(processedTasks);
+             // Procesar y categorizar las tareas
+             const processedTasks = processTasks(apiTasks);
+             setTasks(processedTasks)
 
         } catch (err) {
             console.error('Error al obtener tareas:', err);
