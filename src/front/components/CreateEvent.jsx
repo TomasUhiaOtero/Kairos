@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+
 // Función para obtener YYYY-MM-DD sin modificar la fecha
-// Convierte cualquier fecha (Date o string) a YYYY-MM-DD sin cambios de zona horaria
 const formatDateLocal = (date) => {
     if (!date) return "";
     const d = typeof date === "string" ? new Date(date + "T00:00") : date;
@@ -10,6 +10,7 @@ const formatDateLocal = (date) => {
     const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
 };
+
 const getLocalDateString = (date) => {
     const d = new Date(date);
     const year = d.getFullYear();
@@ -17,6 +18,7 @@ const getLocalDateString = (date) => {
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
+
 const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) => {
     const { store, dispatch } = useGlobalReducer();
 
@@ -48,13 +50,11 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
     // Tarea
     const [taskTitle, setTaskTitle] = useState(isTask ? item?.title || "" : "");
     const [taskGroup, setTaskGroup] = useState(
-        isTask ? item?.groupId || (store.taskGroup[0]?.id ?? "") : ""
+        isTask ? item?.groupId || (store.taskGroup[0]?.id ?? "") : (store.taskGroup[0]?.id ?? "")
     );
     const [taskRepeat, setTaskRepeat] = useState(item?.repeat || false);
     const [taskFrequencyNum, setTaskFrequencyNum] = useState(item?.frequencyNum || 1);
     const [taskFrequencyUnit, setTaskFrequencyUnit] = useState(item?.frequencyUnit || "día");
-
-
 
     const toggleDay = (index) => {
         const newDays = [...checkedDays];
@@ -73,7 +73,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
         if (activeTab === "evento") {
             const newEvent = {
-                id: item?.id, // mantener el ID si existe
+                id: item?.id,
                 type: "event",
                 title: eventTitle,
                 allDay,
@@ -89,7 +89,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
             onAddItem(newEvent);
         } else {
             const newTask = {
-                id: item?.id, // mantener el ID si existe
+                id: item?.id,
                 type: "task",
                 title: taskTitle,
                 groupId: taskGroup,
@@ -98,7 +98,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                 frequencyUnit: taskFrequencyUnit,
                 startDate,
                 startTime,
-                done: item?.done || false, // mantener el estado done si existe
+                done: item?.done || false,
             };
             console.log("Enviando tarea:", newTask);
             onAddItem(newTask);
@@ -113,22 +113,23 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
         }
     }, [isEdit, isTask]);
 
-    // Actualizar campos cuando cambie el item
+    // Actualizar campos cuando cambie el item o la fecha seleccionada
     useEffect(() => {
         if (item) {
             if (item.type === "event") {
-                setStartDate(item.startDate); // usar el string tal cual
-                setEndDate(item.endDate);     // usar el string tal cual
+                setStartDate(item.startDate);
+                setEndDate(item.endDate);
             } else if (item.type === "task") {
-                setStartDate(item.startDate); // usar el string tal cual
+                setStartDate(item.startDate);
+                setTaskGroup(item.groupId ?? store.taskGroup[0]?.id ?? "");
             }
         } else {
             const today = formatDateLocal(selectedDate || new Date());
             setStartDate(today);
             setEndDate(today);
+            setTaskGroup(store.taskGroup[0]?.id ?? "");
         }
-    }, [item, selectedDate]);
-
+    }, [item, selectedDate, store.taskGroup]);
 
     const selectedEvent = store.calendar.find((e) => e.id === eventCalendar);
     const selectedGroup = store.taskGroup.find((g) => g.id === taskGroup);
@@ -157,13 +158,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                 </ul>
             )}
 
-            {isEdit && (
-                <div className="mb-2 text-center">
-                    <button className="btn btn-danger" onClick={handleDelete}>
-                        Eliminar
-                    </button>
-                </div>
-            )}
+
 
             {/* Formulario Evento */}
             {activeTab === "evento" && (
@@ -183,7 +178,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                         <select
                             className="form-select"
                             value={eventCalendar}
-                            onChange={(e) => setEventCalendar(Number(e.target.value))}
+                            onChange={(e) => setEventCalendar(e.target.value)}
                         >
                             {store.calendar.map((event) => (
                                 <option key={event.id} value={event.id}>
@@ -276,7 +271,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                         <select
                             className="form-select w-auto"
                             value={taskGroup}
-                            onChange={(e) => setTaskGroup(Number(e.target.value))}
+                            onChange={(e) => setTaskGroup(e.target.value)}
                         >
                             {store.taskGroup.map((group) => (
                                 <option key={group.id} value={group.id}>
@@ -339,7 +334,15 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                         <button type="submit" className="btn btn-primary btn-sm">
                             {isEdit ? "Actualizar" : "Guardar"}
                         </button>
+                        {isEdit && (
+
+                            <button className="btn btn-danger" onClick={handleDelete}>
+                                Eliminar
+                            </button>
+
+                        )}
                     </div>
+
                 </form>
             )}
         </div>

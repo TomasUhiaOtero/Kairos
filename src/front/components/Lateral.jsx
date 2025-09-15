@@ -28,7 +28,7 @@ export const Lateral = ({ onClose }) => {
     const handleTitleChange = (e) => setTitle(e.target.value);
 
     // Generar ID único
-    const generateId = () => Date.now() + Math.random();
+    const generateId = () => String(Date.now() + Math.random());
 
     // Guardar calendario (crear o editar)
     const handleSubmitCalendar = (e) => {

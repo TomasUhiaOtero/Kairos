@@ -59,7 +59,9 @@ export default function storeReducer(store, action = {}) {
       return {
         ...store,
         events: store.events.map((event) =>
-          event.id === action.payload.id ? { ...event, ...action.payload } : event
+          event.id === action.payload.id
+            ? { ...event, ...action.payload }
+            : event
         ),
       };
 
