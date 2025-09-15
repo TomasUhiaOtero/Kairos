@@ -29,15 +29,20 @@ class User(db.Model):
         String(255), nullable=True)
     google_access_token: Mapped[str] = mapped_column(
         String(255), nullable=True)
+    
+    
 
     # Relaciones
     events = relationship("Event", back_populates="user",
                           cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="user",
                          cascade="all, delete-orphan")
-
-    groups = relationship("Group", back_populates="user",
-                          cascade="all, delete-orphan")
+    task_groups = relationship("TaskGroup", back_populates="user",
+                         cascade="all, delete-orphan")
+    
+    
+    # groups = relationship("Group", back_populates="user",
+    #                       cascade="all, delete-orphan")
     calendars = relationship(
         "Calendar", back_populates="user", cascade="all, delete-orphan")
 
@@ -78,17 +83,15 @@ class Event(db.Model):
     calendar_id: Mapped[int] = mapped_column(   # 🔹 Enlaza con Calendar
         Integer, ForeignKey('calendar.id'), nullable=False
     )
-    task_group_id: Mapped[int] = mapped_column(  # 🔹 Si quieres agrupar eventos también
-        Integer, ForeignKey('task_group.id'), nullable=True
-    )
+    
 
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     description: Mapped[str] = mapped_column(Text)
     color: Mapped[str] = mapped_column(String(50))
-    calendar_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey('calendar.id'))
+    # calendar_id: Mapped[int] = mapped_column(
+    #     Integer, ForeignKey('calendar.id'))
 
     # 🔹 Sincronización con Google
     google_event_id: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -97,7 +100,7 @@ class Event(db.Model):
     # Relaciones
     user = relationship("User", back_populates="events")
 
-    group = relationship("Group", back_populates="events")  # N:1 hacia Group
+    # group = relationship("Group", back_populates="events")  # N:1 hacia Group
     calendar = relationship("Calendar", back_populates="events")
 
 
@@ -136,8 +139,11 @@ class Task(db.Model):
 
     # Relaciones
     user = relationship("User", back_populates="tasks")
-    group = relationship("Group", back_populates="tasks")  # N:1 hacia Group
+    # group = relationship("Group", back_populates="tasks")  # N:1 hacia Group
     calendar = relationship("Calendar", back_populates="tasks")
+
+    task_groups = relationship("TaskGroup", back_populates="tasks",
+                         cascade="all")
 
 
     def serialize(self):
@@ -162,7 +168,7 @@ class TaskGroup(db.Model):
     color: Mapped[str] = mapped_column(String(50))
 
     user = relationship("User", back_populates="task_groups")
-    tasks = relationship("Task", back_populates="task_group", cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="task_groups", cascade="all, delete-orphan")
 
     def serialize_with_tasks(self):
         return {
@@ -199,3 +205,4 @@ class Calendar(db.Model):
             "color": self.color
 
         }
+

@@ -8,25 +8,22 @@ from flask_swagger import swagger
 from flask_cors import CORS
 
 from api.utils import APIException, generate_sitemap
-from api.models import db,Event,Calendar
+from api.models import db
 from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
 from api.routesEvent import apiEvent
 
-
 # Detect environment
 ENV = "development" if os.getenv("FLASK_DEBUG") == "1" else "production"
 
 # Static folder (for frontend build)
-static_file_dir = os.path.join(os.path.dirname(
-    os.path.realpath(__file__)), '../dist/')
+static_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dist/')
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 
 # 🔑 Secret key para firmar tokens (usa variable de entorno o valor por defecto)
-app.config['SECRET_KEY'] = os.environ.get(
-    'FLASK_APP_KEY', 'change-this-in-prod')
+app.config['SECRET_KEY'] = os.environ.get('FLASK_APP_KEY', 'change-this-in-prod')
 
 # ===================== CORS (Global) =====================
 # Define el origen del frontend (puedes setearlo en .env del backend)
@@ -41,7 +38,6 @@ CORS(
     supports_credentials=False  # Si no usas cookies/sesiones, déjalo en False
 )
 
-
 @app.after_request
 def add_cors_headers(resp):
     """
@@ -55,12 +51,10 @@ def add_cors_headers(resp):
     return resp
 # =========================================================
 
-
 # Database configuration
 db_url = os.getenv("DATABASE_URL")
 if db_url is not None:
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace(
-        "postgres://", "postgresql://")
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace("postgres://", "postgresql://")
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:////tmp/test.db"
 
@@ -76,7 +70,7 @@ setup_commands(app)
 
 # Register API blueprint
 app.register_blueprint(api, url_prefix='/api')
-app.register_blueprint(apiEvent, url_prefix='/apiEvent')
+app.register_blueprint(apiEvent, url_prefix='/api')
 
 
 # Handle/serialize known API errors
@@ -85,8 +79,6 @@ def handle_invalid_usage(error):
     return jsonify(error.to_dict()), error.status_code
 
 # Manejo genérico de errores 500 (si algo se escapa, responde JSON con CORS)
-
-
 @app.errorhandler(Exception)
 def handle_unexpected_error(err):
     try:
@@ -113,6 +105,7 @@ def serve_any_other_file(path):
     response = send_from_directory(static_file_dir, path)
     response.cache_control.max_age = 0  # avoid cache memory
     return response
+
 
 
 if __name__ == '__main__':
