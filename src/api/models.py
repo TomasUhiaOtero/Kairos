@@ -39,10 +39,7 @@ class User(db.Model):
                          cascade="all, delete-orphan")
     task_groups = relationship("TaskGroup", back_populates="user",
                          cascade="all, delete-orphan")
-    
-    
-    # groups = relationship("Group", back_populates="user",
-    #                       cascade="all, delete-orphan")
+ 
     calendars = relationship(
         "Calendar", back_populates="user", cascade="all, delete-orphan")
 
@@ -84,23 +81,18 @@ class Event(db.Model):
         Integer, ForeignKey('calendar.id'), nullable=False
     )
     
-
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     description: Mapped[str] = mapped_column(Text)
     color: Mapped[str] = mapped_column(String(50))
-    # calendar_id: Mapped[int] = mapped_column(
-    #     Integer, ForeignKey('calendar.id'))
-
-    # 🔹 Sincronización con Google
+    
     google_event_id: Mapped[str] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="confirmed")
 
     # Relaciones
     user = relationship("User", back_populates="events")
 
-    # group = relationship("Group", back_populates="events")  # N:1 hacia Group
     calendar = relationship("Calendar", back_populates="events")
 
 
@@ -134,14 +126,9 @@ class Task(db.Model):
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     recurrencia: Mapped[int] = mapped_column(Integer, default=0)
     color: Mapped[str] = mapped_column(String(50))
-    calendar_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey('calendar.id'))
 
     # Relaciones
     user = relationship("User", back_populates="tasks")
-    # group = relationship("Group", back_populates="tasks")  # N:1 hacia Group
-    calendar = relationship("Calendar", back_populates="tasks")
-
     task_groups = relationship("TaskGroup", back_populates="tasks",
                          cascade="all")
 
@@ -193,8 +180,6 @@ class Calendar(db.Model):
     user = relationship("User", back_populates="calendars")
     events = relationship("Event", back_populates="calendar",
                           cascade="all, delete-orphan")
-    tasks = relationship("Task", back_populates="calendar",
-                         cascade="all, delete-orphan")
 
 
     def serialize(self):
