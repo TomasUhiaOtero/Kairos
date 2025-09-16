@@ -56,7 +56,7 @@ export const Inicio = () => {
             <div
                 key={`${item.type}-${item.id}`}
                 className={`item ${item.type}`}
-                style={item.type === "event" ? { backgroundColor: `${color}30`,color:color} : { color: color }}
+                style={item.type === "event" ? { backgroundColor: `${color}30`, color: color } : { color: color }}
             >
                 {item.type === "task" && (
                     <div
@@ -90,7 +90,33 @@ export const Inicio = () => {
 
                 <section className="mb-1 font-bold">ESTA SEMANA</section>
                 <div className="card p-3 mb-3">
-                    {weekItems.length === 0 ? <p>No hay tareas ni eventos</p> : weekItems.map(renderFullCalendarStyle)}
+                    {weekItems.length === 0 ? (
+                        <p>No hay tareas ni eventos</p>
+                    ) : (
+                        // Agrupar items por fecha
+                        Object.entries(
+                            weekItems.reduce((acc, item) => {
+                                const key = item._date.toISOString().split("T")[0]; // 'YYYY-MM-DD'
+                                if (!acc[key]) acc[key] = [];
+                                acc[key].push(item);
+                                return acc;
+                            }, {})
+                        ).map(([dateStr, items]) => {
+                            const date = new Date(dateStr);
+                            const formattedDate = date.toLocaleDateString("es-ES", {
+                                weekday: "long",
+                                day: "numeric",
+                                month: "long",
+                            });
+
+                            return (
+                                <div key={dateStr} className="mb-3">
+                                    <div className="font-semibold mb-2">{formattedDate}</div>
+                                    {items.map(renderFullCalendarStyle)}
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
 
                 <section className="mb-1 font-bold">SIN FECHA</section>

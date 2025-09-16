@@ -10,13 +10,10 @@ const formatDateLocal = (date) => {
     const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
 };
-
-// Devuelve fecha + hora solo si time no está vacío
 const formatISODate = (date, time) => {
     if (!date) return "";
     return time ? `${date}T${time}` : date;
 };
-
 const getLocalDateString = (date) => {
     const d = new Date(date);
     const year = d.getFullYear();
@@ -32,7 +29,9 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
     const isEdit = !!item?.id;
     const isTask = item?.type === "task";
+    const isNewItem = !item?.id; // Nuevo flag para distinguir items completamente nuevos
 
+    // Tabs
     const [activeTab, setActiveTab] = useState(
         isEdit ? (isTask ? "tarea" : "evento") : "evento"
     );
@@ -45,10 +44,40 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
     const [allDay, setAllDay] = useState(item?.allDay ?? true);
     const [repeat, setRepeat] = useState(item?.repeat || false);
     const [checkedDays, setCheckedDays] = useState(item?.checkedDays || Array(7).fill(false));
-    const [startDate, setStartDate] = useState(item?.startDate || formatDateLocal(selectedDate) || formatDateLocal(new Date()));
-    const [endDate, setEndDate] = useState(item?.endDate || formatDateLocal(selectedDate) || formatDateLocal(new Date()));
-    const [startTime, setStartTime] = useState(item?.startTime || "");
-    const [endTime, setEndTime] = useState(item?.endTime || "10:00");
+    const [startDate, setStartDate] = useState(formatDateLocal(selectedDate) || formatDateLocal(new Date()));
+    const [endDate, setEndDate] = useState(formatDateLocal(selectedDate) || formatDateLocal(new Date()));
+    const [startTime, setStartTime] = useState(() => {
+        // Si es edición, usar el tiempo del item
+        if (item?.id) {
+            if (item?.type === "task") {
+                return item?.startTime || "";
+            }
+            if (item?.type === "event") {
+                return item?.startTime || "09:00";
+            }
+        }
+        // Para items nuevos (sin ID), inicializar según el tipo o vacío por defecto
+        if (item?.type === "task") {
+            return ""; // Tareas nuevas sin hora
+        }
+        if (item?.type === "event") {
+            return "09:00"; // Eventos nuevos con hora por defecto
+        }
+        // Si no hay item o tipo, inicializar vacío
+        return "";
+    });
+    const [endTime, setEndTime] = useState(() => {
+        // Si es edición de evento, usar el tiempo del item
+        if (item?.id && item?.type === "event") {
+            return item?.endTime || "09:15";
+        }
+        // Para nuevos eventos
+        if (item?.type === "event" && !item?.id) {
+            return "09:15";
+        }
+        // Para tareas o otros casos, inicializar vacío
+        return "";
+    });
 
     // Tarea
     const [taskTitle, setTaskTitle] = useState(isTask ? item?.title || "" : "");
@@ -73,7 +102,6 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
     const handleSubmit = (e) => {
         e.preventDefault();
-
         if (activeTab === "evento") {
             const newEvent = {
                 ...item,
@@ -98,61 +126,58 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                 repeat: taskRepeat,
                 frequencyNum: taskFrequencyNum,
                 frequencyUnit: taskFrequencyUnit,
-                startDate: startDate ? formatISODate(startDate, startTime) : null, // startTime puede estar vacío
+                startDate: startDate ? formatISODate(startDate, startTime || "") : null,
                 startTime: startTime || "",
-                allDay: false, // las tareas siempre no son "allDay" para FullCalendar
+                allDay,
             };
             onAddItem(newTask);
         }
-
         if (onClose) onClose();
     };
 
     useEffect(() => {
-        if (isEdit) setActiveTab(isTask ? "tarea" : "evento");
+        if (isEdit) {
+            setActiveTab(isTask ? "tarea" : "evento");
+        }
     }, [isEdit, isTask]);
 
-    // Inicializar fechas y horas
+    // useEffect específico para manejar el cambio de tabs en modo creación
     useEffect(() => {
-        if (item && item.type === "event") {
-            const sDate = formatDateLocal(item.startDate);
-            const eDate = formatDateLocal(item.endDate);
-
-            setStartDate(sDate);
-            setEndDate(eDate);
-
-            const diffDays = Math.round((new Date(eDate) - new Date(sDate)) / (1000 * 60 * 60 * 24));
-            setDurationDays(diffDays);
-
-            setStartTime(item.startTime || "09:00");
-
-            let eTime = item.endTime || "";
-            if (!item.allDay && sDate === eDate && (!eTime || eTime <= (item.startTime || "09:00"))) {
-                const [h, m] = (item.startTime || "09:00").split(":").map(Number);
-                let dateObj = new Date();
-                dateObj.setHours(h, m + 15);
-                const newH = String(dateObj.getHours()).padStart(2, "0");
-                const newM = String(dateObj.getMinutes()).padStart(2, "0");
-                eTime = `${newH}:${newM}`;
+        if (isNewItem) { // Solo para nuevos items (sin ID)
+            if (activeTab === "tarea") {
+                setStartTime(""); // vacío para nuevas tareas
+                setEndTime("");   // vacío para nuevas tareas
+            } else if (activeTab === "evento") {
+                setStartTime("09:00"); // hora por defecto para eventos
+                setEndTime("09:15");
             }
-            setEndTime(eTime || "09:15");
+        }
+    }, [activeTab, isNewItem]);
 
-        } else if (!item) {
+    // Inicializar campos al cambiar item o fecha seleccionada
+    useEffect(() => {
+        if (item?.id) { // Solo para items existentes (con ID)
+            if (item.type === "event") {
+                setStartDate(formatDateLocal(item.startDate));
+                setEndDate(formatDateLocal(item.endDate));
+                setStartTime(item.startTime || "09:00"); // eventos mantienen 09:00
+                setEndTime(item.endTime || "09:15");
+                const diffDays = Math.round((new Date(item.endDate) - new Date(item.startDate)) / (1000 * 60 * 60 * 24));
+                setDurationDays(diffDays);
+            } else if (item.type === "task") {
+                setStartDate(formatDateLocal(item.startDate));
+                setStartTime(item.startTime || ""); // hora vacía para tareas existentes
+                setEndTime("");   // hora vacía para tareas
+            }
+        } else {
+            // Crear nuevo item - solo establecer fechas
             const today = formatDateLocal(selectedDate || new Date());
             setStartDate(today);
             setEndDate(today);
-
-            if (activeTab === "evento") {
-                setStartTime("09:00");
-                setEndTime("09:15");
-            } else {
-                setStartTime("");  // ← tarea sin hora por defecto
-                setEndTime("");    // ← tarea sin hora por defecto
-            }
-
             setDurationDays(0);
+            // Los tiempos se manejan en el useState inicial y el useEffect del activeTab
         }
-    }, [item, selectedDate, activeTab]);
+    }, [item, selectedDate]);
 
     const handleStartDateChange = (value) => {
         if (!value) return;
@@ -173,9 +198,9 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
     const selectedEvent = store.calendar.find((e) => e.id === eventCalendar);
     const selectedGroup = store.taskGroup.find((g) => g.id === taskGroup);
+
     return (
         <div className="d-flex flex-column gap-2">
-            {/* Tabs */}
             {!isEdit && (
                 <ul className="nav nav-pills mb-2 justify-center">
                     <li className="nav-item">
@@ -197,69 +222,48 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                 </ul>
             )}
 
-
-
             {/* Formulario Evento */}
             {activeTab === "evento" && (
                 <form onSubmit={handleSubmit}>
                     <div className="flex mb-2">
                         <label className="me-2 w-24">Título</label>
-                        <input
-                            className="form-control"
-                            value={eventTitle}
-                            onChange={(e) => setEventTitle(e.target.value)}
-                            required
-                        />
+                        <input className="form-control" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required />
                     </div>
 
                     <div className="flex mb-2 items-center gap-2">
                         <label className="me-2 w-24">Calendario</label>
-                        <select
-                            className="form-select"
-                            value={eventCalendar}
-                            onChange={(e) => setEventCalendar(e.target.value)}
-                        >
-                            {store.calendar.map((event) => (
-                                <option key={event.id} value={event.id}>
-                                    {event.title}
-                                </option>
-                            ))}
-                        </select>
+                        {store.calendar.length > 0 ? (
+                            <select className="form-select" value={eventCalendar} onChange={(e) => setEventCalendar(e.target.value)} required>
+                                {store.calendar.map((event) => (
+                                    <option key={event.id} value={event.id}>{event.title}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <p className="text-gray-500">Crea un calendario primero</p>
+                        )}
                         <div
                             className="w-6 h-6 rounded-circle border"
-                            style={{
-                                backgroundColor: selectedEvent?.color || "#ccc",
-                                borderColor: selectedEvent?.color || "#888",
-                            }}
+                            style={{ backgroundColor: selectedEvent?.color || "#ccc", borderColor: selectedEvent?.color || "#888" }}
                         />
                     </div>
 
                     <div className="flex mb-2 items-center gap-2">
                         <label className="me-2">Todo el día</label>
                         <div className="form-check form-switch">
-                            <input
-                                className="form-check-input"
-                                type="checkbox"
-                                checked={allDay}
-                                onChange={() => setAllDay(!allDay)}
-                            />
+                            <input className="form-check-input" type="checkbox" checked={allDay} onChange={() => setAllDay(!allDay)} />
                         </div>
                     </div>
 
                     <div className="flex mb-2 items-center gap-2">
                         <label className="w-24">Fecha inicio</label>
                         <input type="date" className="form-control" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} />
-                        {!allDay && (
-                            <input type="time" className="form-control" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                        )}
+                        {!allDay && <input type="time" className="form-control" value={startTime} onChange={(e) => setStartTime(e.target.value)} />}
                     </div>
 
                     <div className="flex mb-2 items-center gap-2">
                         <label className="w-24">Fecha fin</label>
                         <input type="date" className="form-control" value={endDate} onChange={(e) => handleEndDateChange(e.target.value)} />
-                        {!allDay && (
-                            <input type="time" className="form-control" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                        )}
+                        {!allDay && <input type="time" className="form-control" value={endTime} onChange={(e) => setEndTime(e.target.value)} />}
                     </div>
 
                     <div className="flex mb-2 items-center gap-2">
@@ -272,12 +276,9 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                     {repeat && (
                         <div className="flex gap-2 mt-2">
                             {["L", "M", "X", "J", "V", "S", "D"].map((initial, i) => (
-                                <div
-                                    key={i}
-                                    onClick={() => toggleDay(i)}
+                                <div key={i} onClick={() => toggleDay(i)}
                                     className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer text-sm font-bold
-                                        ${checkedDays[i] ? "bg-gray-500 text-white" : "bg-white border border-gray-400 text-gray-800"}`}
-                                >
+                  ${checkedDays[i] ? "bg-gray-500 text-white" : "bg-white border border-gray-400 text-gray-800"}`}>
                                     {initial}
                                 </div>
                             ))}
@@ -285,7 +286,11 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                     )}
 
                     <div className="flex mt-2 gap-2">
-                        <button type="submit" className="btn btn-primary btn-sm">
+                        <button
+                            type="submit"
+                            className="btn btn-primary btn-sm"
+                            disabled={store.calendar.length === 0 || !eventCalendar}
+                        >
                             {isEdit ? "Actualizar" : "Guardar"}
                         </button>
                     </div>
@@ -297,46 +302,27 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                 <form onSubmit={handleSubmit}>
                     <div className="flex mb-2 items-center gap-2">
                         <label className="w-24">Título</label>
-                        <input
-                            className="form-control"
-                            value={taskTitle}
-                            onChange={(e) => setTaskTitle(e.target.value)}
-                            required
-                        />
+                        <input className="form-control" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} required />
                     </div>
 
                     <div className="flex mb-2 items-center gap-2">
                         <label className="w-24">Grupo</label>
-                        <select
-                            className="form-select w-auto"
-                            value={taskGroup}
-                            onChange={(e) => setTaskGroup(e.target.value)}
-                        >
-                            {store.taskGroup.map((group) => (
-                                <option key={group.id} value={group.id}>
-                                    {group.title}
-                                </option>
-                            ))}
-                        </select>
-                        <div
-                            className="w-6 h-6 rounded-circle border"
-                            style={{
-                                backgroundColor: selectedGroup?.color || "#ccc",
-                                borderColor: selectedGroup?.color || "#888",
-                            }}
-                        />
+                        {store.taskGroup.length > 0 ? (
+                            <select className="form-select w-auto" value={taskGroup} onChange={(e) => setTaskGroup(e.target.value)} required>
+                                {store.taskGroup.map((group) => (
+                                    <option key={group.id} value={group.id}>{group.title}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <p className="text-gray-500" required>Crea un grupo de tareas primero</p>
+                        )}
+                        <div className="w-6 h-6 rounded-circle border" style={{ backgroundColor: selectedGroup?.color || "#ccc", borderColor: selectedGroup?.color || "#888" }} />
                     </div>
 
                     <div className="flex mb-2 items-center gap-2">
                         <label className="w-24">Fecha</label>
                         <input type="date" className="form-control w-auto flex-shrink-0" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                        <input
-                            type="time"
-                            className="form-control"
-                            value={startTime}
-                            onChange={(e) => setStartTime(e.target.value)}
-                            placeholder="Opcional"
-                        />
+                        <input type="time" className="form-control" value={startTime} onChange={(e) => setStartTime(e.target.value)} placeholder="Opcional" />
                     </div>
 
                     <div className="flex mb-2 items-center gap-2">
@@ -349,18 +335,8 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                     {taskRepeat && (
                         <div className="flex mb-2 items-center gap-2">
                             <label className="w-24">Cada</label>
-                            <input
-                                type="number"
-                                className="form-control w-24"
-                                min={1}
-                                value={taskFrequencyNum}
-                                onChange={(e) => setTaskFrequencyNum(e.target.value)}
-                            />
-                            <select
-                                className="form-select w-auto"
-                                value={taskFrequencyUnit}
-                                onChange={(e) => setTaskFrequencyUnit(e.target.value)}
-                            >
+                            <input type="number" className="form-control w-24" min={1} value={taskFrequencyNum} onChange={(e) => setTaskFrequencyNum(e.target.value)} />
+                            <select className="form-select w-auto" value={taskFrequencyUnit} onChange={(e) => setTaskFrequencyUnit(e.target.value)}>
                                 <option value="día">día/s</option>
                                 <option value="semana">semana/s</option>
                                 <option value="mes">mes/es</option>
@@ -370,18 +346,15 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                     )}
 
                     <div className="flex mt-2 gap-2">
-                        <button type="submit" className="btn btn-primary btn-sm">
+                        <button
+                            type="submit"
+                            className="btn btn-primary btn-sm"
+                            disabled={store.taskGroup.length === 0 || !taskGroup} // <-- deshabilitado si no hay grupo o no está seleccionado
+                        >
                             {isEdit ? "Actualizar" : "Guardar"}
                         </button>
-                        {isEdit && (
-
-                            <button className="btn btn-danger" onClick={handleDelete}>
-                                Eliminar
-                            </button>
-
-                        )}
+                        {isEdit && <button className="btn btn-danger" onClick={handleDelete}>Eliminar</button>}
                     </div>
-
                 </form>
             )}
         </div>
