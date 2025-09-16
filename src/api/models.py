@@ -29,8 +29,6 @@ class User(db.Model):
         String(255), nullable=True)
     google_access_token: Mapped[str] = mapped_column(
         String(255), nullable=True)
-    
-    
 
     # Relaciones
     events = relationship("Event", back_populates="user",
@@ -38,11 +36,10 @@ class User(db.Model):
     tasks = relationship("Task", back_populates="user",
                          cascade="all, delete-orphan")
     task_groups = relationship("TaskGroup", back_populates="user",
-                         cascade="all, delete-orphan")
- 
+                               cascade="all, delete-orphan")
+
     calendars = relationship(
         "Calendar", back_populates="user", cascade="all, delete-orphan")
-
 
     def set_password(self, password):
         self.password = generate_password_hash(password)
@@ -80,13 +77,13 @@ class Event(db.Model):
     calendar_id: Mapped[int] = mapped_column(   # 🔹 Enlaza con Calendar
         Integer, ForeignKey('calendar.id'), nullable=False
     )
-    
+
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     description: Mapped[str] = mapped_column(Text)
     color: Mapped[str] = mapped_column(String(50))
-    
+
     google_event_id: Mapped[str] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="confirmed")
 
@@ -94,7 +91,6 @@ class Event(db.Model):
     user = relationship("User", back_populates="events")
 
     calendar = relationship("Calendar", back_populates="events")
-
 
     def serialize(self):
         return {
@@ -118,20 +114,20 @@ class Task(db.Model):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey('user.id'), nullable=False)
     task_group_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey('task_group.id'), nullable=False
+        # Cambiado a nullable True para pruebas
+        Integer, ForeignKey('task_group.id'), nullable=True
     )
 
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     status: Mapped[bool] = mapped_column(Boolean, default=False)
-    date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    recurrencia: Mapped[int] = mapped_column(Integer, default=0)
-    color: Mapped[str] = mapped_column(String(50))
+    date: Mapped[datetime] = mapped_column(DateTime, nullable=True)  # Cambiado a True para pruebas
+    recurrencia: Mapped[int]=mapped_column(Integer, default=0)
+    color: Mapped[str]=mapped_column(String(50))
 
     # Relaciones
-    user = relationship("User", back_populates="tasks")
-    task_groups = relationship("TaskGroup", back_populates="tasks",
-                         cascade="all")
-
+    user=relationship("User", back_populates="tasks")
+    task_groups=relationship("TaskGroup", back_populates="tasks",
+                               cascade="all")
 
     def serialize(self):
         return {
@@ -147,15 +143,17 @@ class Task(db.Model):
 
 
 class TaskGroup(db.Model):
-    __tablename__ = 'task_group'
+    __tablename__='task_group'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('user.id'), nullable=False)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    color: Mapped[str] = mapped_column(String(50))
+    id: Mapped[int]=mapped_column(primary_key=True)
+    user_id: Mapped[int]=mapped_column(
+        Integer, ForeignKey('user.id'), nullable=False)
+    title: Mapped[str]=mapped_column(String(200), nullable=False)
+    color: Mapped[str]=mapped_column(String(50))
 
-    user = relationship("User", back_populates="task_groups")
-    tasks = relationship("Task", back_populates="task_groups", cascade="all, delete-orphan")
+    user=relationship("User", back_populates="task_groups")
+    tasks=relationship("Task", back_populates="task_groups",
+                         cascade="all, delete-orphan")
 
     def serialize_with_tasks(self):
         return {
@@ -168,19 +166,18 @@ class TaskGroup(db.Model):
 
 
 class Calendar(db.Model):
-    __tablename__ = 'calendar'
+    __tablename__='calendar'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
+    id: Mapped[int]=mapped_column(primary_key=True)
+    user_id: Mapped[int]=mapped_column(
         Integer, ForeignKey('user.id'), nullable=False)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    color: Mapped[str] = mapped_column(String(50))
+    title: Mapped[str]=mapped_column(String(200), nullable=False)
+    color: Mapped[str]=mapped_column(String(50))
 
     # Relaciones
-    user = relationship("User", back_populates="calendars")
-    events = relationship("Event", back_populates="calendar",
+    user=relationship("User", back_populates="calendars")
+    events=relationship("Event", back_populates="calendar",
                           cascade="all, delete-orphan")
-
 
     def serialize(self):
         return {
@@ -190,4 +187,3 @@ class Calendar(db.Model):
             "color": self.color
 
         }
-

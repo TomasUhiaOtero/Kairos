@@ -33,15 +33,15 @@ export default function Tasks() {
             console.log(backend)
             setLoading(true);
             const response = await fetch(`${backend}/api/users/${userId}/tasks`);
-           
-             if (!response.ok) {
-                 throw new Error(`Error: ${response.status}`);
-             }
- 
+
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
+            }
+
             const apiTasks = await response.json();
-             // Procesar y categorizar las tareas
-             const processedTasks = processTasks(apiTasks);
-             setTasks(processedTasks)
+            // Procesar y categorizar las tareas
+            const processedTasks = processTasks(apiTasks);
+            setTasks(processedTasks)
 
         } catch (err) {
             console.error('Error al obtener tareas:', err);
@@ -61,7 +61,6 @@ export default function Tasks() {
         };
 
         apiTasks.forEach(task => {
-            // Mapear los campos de la API a la estructura del componente
             const processedTask = {
                 id: task.id,
                 text: task.title,
@@ -74,20 +73,16 @@ export default function Tasks() {
             if (task.date) {
                 const taskDate = new Date(task.date);
 
-                // Si la tarea tiene fecha y está vencida
-                if (taskDate < now && task.status === 'pending') {
+                if (taskDate < now && task.status === false) {
                     categorizedTasks.atrasado.push(processedTask);
                 } else {
-                    // Formatear la fecha para mostrar
                     const formattedDate = formatDate(taskDate);
-
                     if (!categorizedTasks.conFecha[formattedDate]) {
                         categorizedTasks.conFecha[formattedDate] = [];
                     }
                     categorizedTasks.conFecha[formattedDate].push(processedTask);
                 }
             } else {
-                // Tareas sin fecha
                 categorizedTasks.sinFecha.push(processedTask);
             }
         });
@@ -111,7 +106,7 @@ export default function Tasks() {
     // Función para crear una nueva tarea
     const createTask = async (taskData) => {
         try {
-            const response = await fetch(`/api/users/${userId}/tasks`, {
+            const response = await fetch(`${backend}/api/users/${userId}/tasks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -135,7 +130,7 @@ export default function Tasks() {
     // Función para eliminar una tarea
     const deleteTask = async (taskId) => {
         try {
-            const response = await fetch(`/api/users/${userId}/tasks/${taskId}`, {
+            const response = await fetch(`${backend}/api/users/${userId}/tasks/${taskId}`, {
                 method: 'DELETE',
             });
 
@@ -155,7 +150,7 @@ export default function Tasks() {
     // Función para actualizar una tarea
     const updateTask = async (taskId, updateData) => {
         try {
-            const response = await fetch(`/api/users/${userId}/tasks/${taskId}`, {
+            const response = await fetch(`${backend}/api/users/${userId}/tasks/${taskId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
