@@ -58,10 +58,8 @@ export default function TaskItem({ id, text, color, repeat, status, onDelete, on
                 {/* Checkbox para completar */}
                 <button
                     onClick={handleToggleComplete}
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isCompleted
-                            ? 'bg-green-500 border-green-500'
-                            : 'border-gray-300 hover:border-green-400'
-                        }`}
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+                        ${isCompleted ? `${color} border-${color.replace('text-', '')}` : 'border-gray-300 hover:border-gray-400'}`}
                 >
                     {isCompleted && (
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -308,7 +308,7 @@ export default function Tasks() {
                                     type="checkbox"
                                     checked={activeFilters.atrasado}
                                     onChange={() => toggleFilter('atrasado')}
-                                    className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                                    className="w-4 h-4 text-red-600 rounded focus:ring-red-500 ${task.color}"
                                 />
                                 <span className="text-gray-700">Tareas Atrasadas</span>
                                 <span className="ml-auto text-sm text-gray-500">({tasks.atrasado.length})</span>
