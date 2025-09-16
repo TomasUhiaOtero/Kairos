@@ -4,31 +4,35 @@ import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
 // Función para obtener YYYY-MM-DD sin modificar la fecha
 const formatDateLocal = (date) => {
     if (!date) return "";
-    const d = typeof date === "string" ? new Date(date + "T00:00") : date;
+    const d = new Date(date);
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
 };
 
+// Devuelve fecha + hora solo si time no está vacío
+const formatISODate = (date, time) => {
+    if (!date) return "";
+    return time ? `${date}T${time}` : date;
+};
+
 const getLocalDateString = (date) => {
     const d = new Date(date);
     const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
 };
 
 const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) => {
-    const { store, dispatch } = useGlobalReducer();
+    const { store } = useGlobalReducer();
+    const [durationDays, setDurationDays] = useState(0);
+    const [endDateManuallyChanged, setEndDateManuallyChanged] = useState(false);
 
-    // Detectar si es edición
     const isEdit = !!item?.id;
     const isTask = item?.type === "task";
 
-    console.log("CreateEvent - isEdit:", isEdit, "isTask:", isTask, "item:", item);
-
-    // Tabs
     const [activeTab, setActiveTab] = useState(
         isEdit ? (isTask ? "tarea" : "evento") : "evento"
     );
@@ -43,7 +47,6 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
     const [checkedDays, setCheckedDays] = useState(item?.checkedDays || Array(7).fill(false));
     const [startDate, setStartDate] = useState(item?.startDate || formatDateLocal(selectedDate) || formatDateLocal(new Date()));
     const [endDate, setEndDate] = useState(item?.endDate || formatDateLocal(selectedDate) || formatDateLocal(new Date()));
-
     const [startTime, setStartTime] = useState(item?.startTime || "");
     const [endTime, setEndTime] = useState(item?.endTime || "10:00");
 
@@ -73,34 +76,32 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
         if (activeTab === "evento") {
             const newEvent = {
-                id: item?.id,
+                ...item,
                 type: "event",
                 title: eventTitle,
                 allDay,
                 repeat,
                 checkedDays,
-                startDate,
-                endDate,
+                startDate: formatISODate(startDate, allDay ? "" : startTime),
+                endDate: formatISODate(endDate, allDay ? "" : endTime),
                 startTime: allDay ? "" : startTime,
                 endTime: allDay ? "" : endTime,
                 calendarId: eventCalendar,
             };
-            console.log("Enviando evento:", newEvent);
             onAddItem(newEvent);
         } else {
             const newTask = {
-                id: item?.id,
+                ...item,
                 type: "task",
                 title: taskTitle,
                 groupId: taskGroup,
                 repeat: taskRepeat,
                 frequencyNum: taskFrequencyNum,
                 frequencyUnit: taskFrequencyUnit,
-                startDate,
-                startTime,
-                done: item?.done || false,
+                startDate: startDate ? formatISODate(startDate, startTime) : null, // startTime puede estar vacío
+                startTime: startTime || "",
+                allDay: false, // las tareas siempre no son "allDay" para FullCalendar
             };
-            console.log("Enviando tarea:", newTask);
             onAddItem(newTask);
         }
 
@@ -108,32 +109,70 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
     };
 
     useEffect(() => {
-        if (isEdit) {
-            setActiveTab(isTask ? "tarea" : "evento");
-        }
+        if (isEdit) setActiveTab(isTask ? "tarea" : "evento");
     }, [isEdit, isTask]);
 
-    // Actualizar campos cuando cambie el item o la fecha seleccionada
+    // Inicializar fechas y horas
     useEffect(() => {
-        if (item) {
-            if (item.type === "event") {
-                setStartDate(item.startDate);
-                setEndDate(item.endDate);
-            } else if (item.type === "task") {
-                setStartDate(item.startDate);
-                setTaskGroup(item.groupId ?? store.taskGroup[0]?.id ?? "");
+        if (item && item.type === "event") {
+            const sDate = formatDateLocal(item.startDate);
+            const eDate = formatDateLocal(item.endDate);
+
+            setStartDate(sDate);
+            setEndDate(eDate);
+
+            const diffDays = Math.round((new Date(eDate) - new Date(sDate)) / (1000 * 60 * 60 * 24));
+            setDurationDays(diffDays);
+
+            setStartTime(item.startTime || "09:00");
+
+            let eTime = item.endTime || "";
+            if (!item.allDay && sDate === eDate && (!eTime || eTime <= (item.startTime || "09:00"))) {
+                const [h, m] = (item.startTime || "09:00").split(":").map(Number);
+                let dateObj = new Date();
+                dateObj.setHours(h, m + 15);
+                const newH = String(dateObj.getHours()).padStart(2, "0");
+                const newM = String(dateObj.getMinutes()).padStart(2, "0");
+                eTime = `${newH}:${newM}`;
             }
-        } else {
+            setEndTime(eTime || "09:15");
+
+        } else if (!item) {
             const today = formatDateLocal(selectedDate || new Date());
             setStartDate(today);
             setEndDate(today);
-            setTaskGroup(store.taskGroup[0]?.id ?? "");
+
+            if (activeTab === "evento") {
+                setStartTime("09:00");
+                setEndTime("09:15");
+            } else {
+                setStartTime("");  // ← tarea sin hora por defecto
+                setEndTime("");    // ← tarea sin hora por defecto
+            }
+
+            setDurationDays(0);
         }
-    }, [item, selectedDate, store.taskGroup]);
+    }, [item, selectedDate, activeTab]);
+
+    const handleStartDateChange = (value) => {
+        if (!value) return;
+        const newStart = new Date(value);
+        setStartDate(value);
+
+        if (!endDateManuallyChanged) {
+            const newEnd = new Date(newStart);
+            newEnd.setDate(newStart.getDate() + durationDays);
+            setEndDate(getLocalDateString(newEnd));
+        }
+    };
+
+    const handleEndDateChange = (value) => {
+        setEndDate(value);
+        setEndDateManuallyChanged(true);
+    };
 
     const selectedEvent = store.calendar.find((e) => e.id === eventCalendar);
     const selectedGroup = store.taskGroup.find((g) => g.id === taskGroup);
-
     return (
         <div className="d-flex flex-column gap-2">
             {/* Tabs */}
@@ -209,7 +248,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
                     <div className="flex mb-2 items-center gap-2">
                         <label className="w-24">Fecha inicio</label>
-                        <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                        <input type="date" className="form-control" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} />
                         {!allDay && (
                             <input type="time" className="form-control" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
                         )}
@@ -217,7 +256,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
                     <div className="flex mb-2 items-center gap-2">
                         <label className="w-24">Fecha fin</label>
-                        <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                        <input type="date" className="form-control" value={endDate} onChange={(e) => handleEndDateChange(e.target.value)} />
                         {!allDay && (
                             <input type="time" className="form-control" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                         )}

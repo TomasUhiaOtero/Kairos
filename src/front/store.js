@@ -4,6 +4,7 @@ export const initialStore = () => {
     taskGroup: [], // Lista de grupos de tareas
     events: [], // Eventos individuales asignados a calendarios
     tasks: [], // Tareas individuales asignadas a grupos
+    completedRecurrentTasks: [], // Instancias completadas de tareas recurrentes
   };
 };
 
@@ -87,6 +88,42 @@ export default function storeReducer(store, action = {}) {
       return {
         ...store,
         tasks: store.tasks.filter((t) => t.id !== action.payload),
+      };
+
+    // TAREAS RECURRENTES - Marcar instancia específica como completada
+    case "COMPLETE_RECURRENT_TASK_INSTANCE":
+      const { originalId, instanceDate } = action.payload;
+      const existingCompleted = store.completedRecurrentTasks.find(
+        c => c.originalId === originalId && c.instanceDate === instanceDate
+      );
+
+      if (existingCompleted) {
+        // Si ya existe, la removemos (toggle off)
+        return {
+          ...store,
+          completedRecurrentTasks: store.completedRecurrentTasks.filter(
+            c => !(c.originalId === originalId && c.instanceDate === instanceDate)
+          )
+        };
+      } else {
+        // Si no existe, la agregamos (toggle on)
+        return {
+          ...store,
+          completedRecurrentTasks: [
+            ...store.completedRecurrentTasks,
+            { originalId, instanceDate, completedAt: new Date().toISOString() }
+          ]
+        };
+      }
+
+    // LIMPIAR instancias completadas huérfanas (cuando se elimina la tarea original)
+    case "CLEANUP_ORPHANED_COMPLETED_INSTANCES":
+      const validTaskIds = store.tasks.map(t => t.id);
+      return {
+        ...store,
+        completedRecurrentTasks: store.completedRecurrentTasks.filter(
+          c => validTaskIds.includes(c.originalId)
+        )
       };
 
     default:

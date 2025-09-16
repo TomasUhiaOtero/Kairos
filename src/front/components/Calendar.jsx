@@ -13,6 +13,8 @@ const Calendar = () => {
     const [popover, setPopover] = useState(null);
     const [title, setTitle] = useState('');
 
+    const defaultCalendarId = store.calendar[0]?.id?.toString() || 'default-calendar';
+
     // --- Utilidades ---
     const getLocalDateString = (date) => {
         const d = new Date(date);
@@ -23,20 +25,11 @@ const Calendar = () => {
     };
 
     const formatItemDates = (item) => {
-        let start, end;
         if (item.type === "event") {
-            if (item.allDay) {
-                start = item.startDate;
-                end = item.endDate || undefined; // No sumar días
-            } else {
-                start = `${item.startDate}T${item.startTime || "09:00"}`;
-                end = `${item.endDate || item.startDate}T${item.endTime || "10:00"}`;
-            }
+            return { ...item, start: item.startDate, end: item.endDate || undefined };
         } else {
-            start = `${item.startDate}T${item.startTime || "09:00"}`;
-            end = `${item.startDate}T${item.startTime || "09:00"}`;
+            return { ...item, start: item.startDate || undefined, end: undefined, extendedStartTime: item.startTime || '' };
         }
-        return { ...item, start, end };
     };
 
     const getCalendarsColors = () => {
@@ -72,7 +65,7 @@ const Calendar = () => {
 
         const formattedItem = formatItemDates({
             ...item,
-            id: item.id || Date.now() + Math.random(),
+            id: (item.id || (Date.now() + Math.random())).toString(),
         });
 
         if (item.type === 'event') {
@@ -97,7 +90,7 @@ const Calendar = () => {
     };
 
     const toggleTaskDone = (taskId) => {
-        const existingTask = store.tasks.find(t => t.id === taskId);
+        const existingTask = store.tasks.find(t => t.id.toString() === taskId.toString());
         if (existingTask) {
             dispatch({
                 type: "UPDATE_TASK",
@@ -109,41 +102,35 @@ const Calendar = () => {
     // --- Drag & Resize ---
     const handleEventDrop = (info) => {
         const { id, start, end, allDay } = info.event;
-        const itemType = info.event.extendedProps.type;
+        const type = info.event.extendedProps.type;
 
-        const updatedItem = {
-            id,
-            startDate: getLocalDateString(start),
-            endDate: end ? getLocalDateString(end) : getLocalDateString(start),
-            startTime: !allDay && start ? start.toTimeString().slice(0, 5) : '',
-            endTime: !allDay && end ? end.toTimeString().slice(0, 5) : '',
-            allDay: itemType === 'event' ? allDay : false,
-        };
+        const updatedItem = type === 'event'
+            ? store.events.find(e => e.id.toString() === id.toString())
+            : store.tasks.find(t => t.id.toString() === id.toString());
 
-        const existing = itemType === 'event'
-            ? store.events.find(e => e.id === id)
-            : store.tasks.find(t => t.id === id);
+        if (!updatedItem) return;
 
-        if (existing) {
-            dispatch({
-                type: itemType === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK",
-                payload: { ...existing, ...updatedItem }
-            });
-        }
-        if (type === 'task') {
-            const task = store.tasks.find(t => t.id === id);
-            if (task) {
-                const updatedTask = {
-                    ...task,
-                    startDate: getLocalDateString(start),
-                    endDate: getLocalDateString(start),
-                };
-                dispatch({ type: "UPDATE_TASK", payload: updatedTask });
-            }
-        }
+        const payload = {
+    ...updatedItem,
+    startDate: getLocalDateString(start),
+    endDate: type === 'event' ? (end ? getLocalDateString(end) : getLocalDateString(start)) : undefined,
+    startTime: type === 'event' ? (!allDay && start ? start.toTimeString().slice(0, 5) : '') : (updatedItem.startTime || ''),
+    endTime: type === 'event' ? (!allDay && end ? end.toTimeString().slice(0, 5) : '') : '',
+    allDay: type === 'event' ? allDay : false,
+};
+
+
+        dispatch({
+            type: type === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK",
+            payload
+        });
+
+        // Forzamos rerender en FullCalendar
+        info.event.setStart(payload.startDate);
+        info.event.setEnd(payload.endDate);
     };
 
-    const handleEventResize = handleEventDrop; // mismo manejo
+    const handleEventResize = handleEventDrop;
 
     // --- Popover ---
     const handleDateClick = (arg) => {
@@ -162,10 +149,38 @@ const Calendar = () => {
                 startDate: arg.dateStr,
                 endDate: arg.dateStr,
                 allDay: true,
-                calendarId: store.calendar[0]?.id,
+                calendarId: defaultCalendarId,
             },
         });
     };
+
+    const handleEventClick = (clickInfo) => {
+        const { id, type } = clickInfo.event.extendedProps;
+
+        const updatedItem = type === 'event'
+            ? store.events.find(e => e.id.toString() === id.toString())
+            : store.tasks.find(t => t.id.toString() === id.toString());
+
+        if (!updatedItem) return;
+
+        const rect = clickInfo.jsEvent.target.getBoundingClientRect();
+        let popoverWidth = 300, popoverHeight = 400;
+        let x = rect.left + rect.width / 2 - popoverWidth / 2;
+        let y = rect.top - popoverHeight - 10;
+        if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
+        if (x < 0) x = 10;
+        if (y < 0) y = rect.bottom + 10;
+
+        setPopover({ x, y, item: { ...updatedItem, calendarId: updatedItem.calendarId || defaultCalendarId } });
+    };
+
+    useEffect(() => {
+        const closePopover = (e) => {
+            if (popover && !e.target.closest('.popover-form')) setPopover(null);
+        };
+        document.addEventListener('mousedown', closePopover);
+        return () => document.removeEventListener('mousedown', closePopover);
+    }, [popover]);
 
     // --- Toolbar ---
     const updateTitle = () => setTitle(calendarRef.current?.getApi().view.title || '');
@@ -175,6 +190,11 @@ const Calendar = () => {
     const handleViewChange = (e) => { calendarRef.current?.getApi().changeView(e.target.value); updateTitle(); };
 
     // --- Renderizado ---
+    const allItems = [
+        ...store.events.map(e => ({ ...e, type: 'event' })),
+        ...store.tasks.map(t => ({ ...t, type: 'task' }))
+    ];
+
     const renderEventContent = (eventInfo) => {
         const { type, groupId, done, id, extendedStartTime } = eventInfo.event.extendedProps;
         const isAllDay = eventInfo.event.allDay;
@@ -211,47 +231,6 @@ const Calendar = () => {
             );
         }
     };
-    const handleEventClick = (clickInfo) => {
-        const { event } = clickInfo;
-        const rect = clickInfo.jsEvent.target.getBoundingClientRect();
-
-        let popoverWidth = 300, popoverHeight = 400;
-        let x = rect.left + rect.width / 2 - popoverWidth / 2;
-        let y = rect.top - popoverHeight - 10;
-        if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
-        if (x < 0) x = 10;
-        if (y < 0) y = rect.bottom + 10;
-
-        setPopover({
-            x, y,
-            item: {
-                id: event.id,
-                title: event.title,
-                type: event.extendedProps.type,
-                startDate: getLocalDateString(event.start),
-                endDate: event.end ? getLocalDateString(event.end) : getLocalDateString(event.start),
-                startTime: !event.allDay && event.start ? event.start.toTimeString().slice(0, 5) : '',
-                endTime: !event.allDay && event.end ? event.end.toTimeString().slice(0, 5) : '',
-                allDay: event.allDay,
-                calendarId: event.extendedProps.calendarId,
-                groupId: event.extendedProps.groupId,
-                done: event.extendedProps.done || false,
-                ...event.extendedProps
-            }
-        });
-    };
-    useEffect(() => {
-        const closePopover = (e) => {
-            if (popover && !e.target.closest('.popover-form')) setPopover(null);
-        };
-        document.addEventListener('mousedown', closePopover);
-        return () => document.removeEventListener('mousedown', closePopover);
-    }, [popover]);
-
-    const allItems = [
-        ...store.events.map(event => ({ ...event, type: 'event' })),
-        ...store.tasks.map(task => ({ ...task, type: 'task' }))
-    ];
 
     return (
         <div>
@@ -285,15 +264,21 @@ const Calendar = () => {
                         ? calendarsColors[calendarId] || { background: '#f3f4f6', border: '#6b7280', text: '#374151' }
                         : taskGroupsColors[groupId] || { background: '#f3f4f6', border: '#6b7280', text: '#374151' };
                     return {
-                        id: item.id,
+                        id: item.id.toString(),
                         start,
                         end,
                         title: item.title,
-                        allDay: item.allDay ?? false, // <-- nunca forzar true para tareas
+                        allDay: item.allDay ?? false,
                         backgroundColor: colors.background,
                         borderColor: colors.border,
                         textColor: colors.text,
-                        extendedProps: { ...rest, type, calendarId, groupId },
+                        extendedProps: {
+                            type,
+                            calendarId: type === 'event' ? calendarId || defaultCalendarId : undefined,
+                            groupId: type === 'task' ? groupId : undefined,
+                            done: item.done ?? false,
+                            ...rest
+                        },
                         display: 'block',
                         startEditable: true,
                         durationEditable: type === 'event',
