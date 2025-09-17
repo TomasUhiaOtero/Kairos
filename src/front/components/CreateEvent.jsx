@@ -29,7 +29,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
     const isEdit = !!item?.id;
     const isTask = item?.type === "task";
-    const isNewItem = !item?.id; // Nuevo flag para distinguir items completamente nuevos
+    const isNewItem = !item?.id; 
 
     // Tabs
     const [activeTab, setActiveTab] = useState(
@@ -47,7 +47,6 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
     const [startDate, setStartDate] = useState(formatDateLocal(selectedDate) || formatDateLocal(new Date()));
     const [endDate, setEndDate] = useState(formatDateLocal(selectedDate) || formatDateLocal(new Date()));
     const [startTime, setStartTime] = useState(() => {
-        // Si es edición, usar el tiempo del item
         if (item?.id) {
             if (item?.type === "task") {
                 return item?.startTime || "";
@@ -56,26 +55,23 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                 return item?.startTime || "09:00";
             }
         }
-        // Para items nuevos (sin ID), inicializar según el tipo o vacío por defecto
         if (item?.type === "task") {
-            return ""; // Tareas nuevas sin hora
+            return "";
         }
         if (item?.type === "event") {
-            return "09:00"; // Eventos nuevos con hora por defecto
+            return "09:00"; 
         }
-        // Si no hay item o tipo, inicializar vacío
         return "";
     });
+
     const [endTime, setEndTime] = useState(() => {
-        // Si es edición de evento, usar el tiempo del item
         if (item?.id && item?.type === "event") {
             return item?.endTime || "09:15";
         }
-        // Para nuevos eventos
+
         if (item?.type === "event" && !item?.id) {
             return "09:15";
         }
-        // Para tareas o otros casos, inicializar vacío
         return "";
     });
 
@@ -141,41 +137,37 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
         }
     }, [isEdit, isTask]);
 
-    // useEffect específico para manejar el cambio de tabs en modo creación
     useEffect(() => {
-        if (isNewItem) { // Solo para nuevos items (sin ID)
+        if (isNewItem) {
             if (activeTab === "tarea") {
-                setStartTime(""); // vacío para nuevas tareas
-                setEndTime("");   // vacío para nuevas tareas
+                setStartTime(""); 
+                setEndTime("");  
             } else if (activeTab === "evento") {
-                setStartTime("09:00"); // hora por defecto para eventos
+                setStartTime("09:00"); 
                 setEndTime("09:15");
             }
         }
     }, [activeTab, isNewItem]);
 
-    // Inicializar campos al cambiar item o fecha seleccionada
     useEffect(() => {
-        if (item?.id) { // Solo para items existentes (con ID)
+        if (item?.id) { 
             if (item.type === "event") {
                 setStartDate(formatDateLocal(item.startDate));
                 setEndDate(formatDateLocal(item.endDate));
-                setStartTime(item.startTime || "09:00"); // eventos mantienen 09:00
+                setStartTime(item.startTime || "09:00"); 
                 setEndTime(item.endTime || "09:15");
                 const diffDays = Math.round((new Date(item.endDate) - new Date(item.startDate)) / (1000 * 60 * 60 * 24));
                 setDurationDays(diffDays);
             } else if (item.type === "task") {
                 setStartDate(formatDateLocal(item.startDate));
-                setStartTime(item.startTime || ""); // hora vacía para tareas existentes
-                setEndTime("");   // hora vacía para tareas
+                setStartTime(item.startTime || "");
+                setEndTime("");  
             }
         } else {
-            // Crear nuevo item - solo establecer fechas
             const today = formatDateLocal(selectedDate || new Date());
             setStartDate(today);
             setEndDate(today);
             setDurationDays(0);
-            // Los tiempos se manejan en el useState inicial y el useEffect del activeTab
         }
     }, [item, selectedDate]);
 
@@ -349,7 +341,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                         <button
                             type="submit"
                             className="btn btn-primary btn-sm"
-                            disabled={store.taskGroup.length === 0 || !taskGroup} // <-- deshabilitado si no hay grupo o no está seleccionado
+                            disabled={store.taskGroup.length === 0 || !taskGroup} 
                         >
                             {isEdit ? "Actualizar" : "Guardar"}
                         </button>

@@ -78,7 +78,7 @@ export const Lateral = ({ onClose }) => {
     const handleEdit = (item, type) => {
         setTitle(item.title);
         setColor(item.color);
-        setEditingId(item.id); // Usar el ID real, no el índice
+        setEditingId(item.id); 
         setEditingType(type);
         if (type === "calendar") setCreateCalendar(true);
         else setCreateTask(true);

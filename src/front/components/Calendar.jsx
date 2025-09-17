@@ -6,6 +6,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import CreateEvent from './CreateEvent';
 import useGlobalReducer from '../hooks/useGlobalReducer.jsx';
+import { getTasks, createTask, deleteTask } from "../lib/api";
 
 const Calendar = () => {
     const { store, dispatch } = useGlobalReducer();
@@ -15,6 +16,7 @@ const Calendar = () => {
 
     const defaultCalendarId = store.calendar[0]?.id?.toString() || 'default-calendar';
 
+    
     // --- Utilidades ---
     const getLocalDateString = (date) => {
         const d = new Date(date);
@@ -154,15 +156,16 @@ const Calendar = () => {
         });
     };
 
-    const handleEventClick = (clickInfo) => {
-        const { id, type } = clickInfo.event.extendedProps;
+const handleEventClick = (clickInfo) => {
+    const { id, type } = clickInfo.event.extendedProps;
 
-        const updatedItem = type === 'event'
-            ? store.events.find(e => e.id.toString() === id.toString())
-            : store.tasks.find(t => t.id.toString() === id.toString());
+    const updatedItem = type === 'event'
+        ? store.events.find(e => e.id.toString() === id.toString())
+        : store.tasks.find(t => t.id.toString() === id.toString());
 
-        if (!updatedItem) return;
+    if (!updatedItem) return;
 
+    if (type === 'event') {
         const rect = clickInfo.jsEvent.target.getBoundingClientRect();
         let popoverWidth = 300, popoverHeight = 400;
         let x = rect.left + rect.width / 2 - popoverWidth / 2;
@@ -172,7 +175,10 @@ const Calendar = () => {
         if (y < 0) y = rect.bottom + 10;
 
         setPopover({ x, y, item: { ...updatedItem, calendarId: updatedItem.calendarId || defaultCalendarId } });
-    };
+    } else if (type === 'task' && typeof onEditTask === 'function') {
+        onEditTask(updatedItem); // abrimos TaskForm inline
+    }
+};
 
     useEffect(() => {
         const closePopover = (e) => {
