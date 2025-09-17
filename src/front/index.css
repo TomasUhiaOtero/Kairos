@@ -1,3 +1,48 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  border-radius: 0.5rem;
+  padding: 4px 6px;
+  transition: all 0.2s ease;
+  color: inherit;
+}
+
+/* Tareas */
+.item.task {
+  background-color: transparent;
+  cursor: pointer;
+  border: 1px solid currentColor;
+}
+
+/* Check de la tarea */
+.item .check {
+  width: 1em;
+  height: 1em;
+  min-width: 12px;
+  min-height: 12px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.item .check.done {
+  background-color: currentColor;
+}
+
+/* Eventos */
+.item.event {
+  background-color: rgba(37, 99, 235, 0.3); 
+  border: none;
+  cursor: default;
+}
+
+.item.event:hover {
+  filter: brightness(0.9);
+}
