@@ -252,7 +252,7 @@ export default function Tasks() {
                 {activeFilters.atrasado && (
                     <TasksSection title="Atrasado">
                         {tasks.atrasado.map((task) => (
-                            <TaskItem key={task.id} {...task} />
+                            <TaskItem key={task.id} {...task} onUpdate={updateTask} onDelete={deleteTask} />
                         ))}
                     </TasksSection>
                 )}
@@ -262,7 +262,7 @@ export default function Tasks() {
                     {activeFilters.conFecha && Object.entries(tasks.conFecha).map(([date, taskList]) => (
                         <TasksSection key={date} title={date}>
                             {taskList.map((task) => (
-                                <TaskItem key={task.id} {...task} />
+                                <TaskItem key={task.id} {...task} onUpdate={updateTask} onDelete={deleteTask} />
                             ))}
                         </TasksSection>
                     ))}
@@ -271,7 +271,7 @@ export default function Tasks() {
                 {activeFilters.sinFecha && (
                     <TasksSection title="Sin fecha">
                         {tasks.sinFecha.length > 0 ? (
-                            tasks.sinFecha.map((task) => <TaskItem key={task.id} {...task} />)
+                            tasks.sinFecha.map((task) => <TaskItem key={task.id} {...task} onUpdate={updateTask} onDelete={deleteTask} />)
                         ) : (
                             <div className="text-gray-400 text-sm p-4">No hay tareas</div>
                         )}
