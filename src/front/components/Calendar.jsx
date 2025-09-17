@@ -6,7 +6,6 @@ import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import CreateEvent from './CreateEvent';
 import useGlobalReducer from '../hooks/useGlobalReducer.jsx';
-import { getTasks, createTask, deleteTask } from "../lib/api";
 
 const Calendar = () => {
     const { store, dispatch } = useGlobalReducer();
