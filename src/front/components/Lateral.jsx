@@ -28,7 +28,7 @@ export const Lateral = ({ onClose }) => {
     const handleTitleChange = (e) => setTitle(e.target.value);
 
     // Generar ID único
-    const generateId = () => Date.now() + Math.random();
+    const generateId = () => String(Date.now() + Math.random());
 
     // Guardar calendario (crear o editar)
     const handleSubmitCalendar = (e) => {
@@ -78,7 +78,7 @@ export const Lateral = ({ onClose }) => {
     const handleEdit = (item, type) => {
         setTitle(item.title);
         setColor(item.color);
-        setEditingId(item.id); // Usar el ID real, no el índice
+        setEditingId(item.id); 
         setEditingType(type);
         if (type === "calendar") setCreateCalendar(true);
         else setCreateTask(true);

@@ -17,8 +17,6 @@ export const Home = () => {
       const response = await fetch(backendUrl + "/api/hello")
       const data = await response.json()
 
-      
-
       return data
 
     } catch (error) {

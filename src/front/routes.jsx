@@ -15,12 +15,7 @@ import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
-import Calendario from "./pages/Calendario";
-
-// 👇 Importamos la page provisional de eventos como default
-import EventosPage from "./pages/EventosPage";
-
-// 👇 Nueva importación de la página de configuración
+import EventosTareas from "./pages/EventosTareas";
 import Config from "./pages/Config";
 
 export const router = createBrowserRouter(
@@ -34,15 +29,15 @@ export const router = createBrowserRouter(
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
 
-      <Route path="/calendario" element={<Calendario />} />
+
       <Route path="/forgot" element={<ForgotPassword />} />
       <Route path="/reset" element={<ResetPassword />} />
 
-      {/* Ruta provisional para ver el componente con datos de prueba */}
-      <Route path="/eventos" element={<EventosPage />} />
 
+      <Route path="/eventos-tareas" element={<EventosTareas />} />
       {/* 👇 Nueva ruta de configuración */}
       <Route path="/config" element={<Config />} />
+
     </Route>
   )
 );
