@@ -1,4 +1,4 @@
-// src/front/js/routes.jsx
+// src/front/routes.jsx
 
 // Import necessary components and functions from react-router-dom.
 import {
@@ -20,6 +20,8 @@ import Calendario from "./pages/Calendario";
 // 👇 Importamos la page provisional de eventos como default
 import EventosPage from "./pages/EventosPage";
 
+// 👇 Nueva importación de la página de configuración
+import Config from "./pages/Config";
 
 export const router = createBrowserRouter(
   createRoutesFromElements(
@@ -32,15 +34,15 @@ export const router = createBrowserRouter(
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
 
-   
-      
-
       <Route path="/calendario" element={<Calendario />} />
       <Route path="/forgot" element={<ForgotPassword />} />
       <Route path="/reset" element={<ResetPassword />} />
 
       {/* Ruta provisional para ver el componente con datos de prueba */}
       <Route path="/eventos" element={<EventosPage />} />
+
+      {/* 👇 Nueva ruta de configuración */}
+      <Route path="/config" element={<Config />} />
     </Route>
   )
 );
