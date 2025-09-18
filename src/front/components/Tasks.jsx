@@ -65,7 +65,7 @@ export default function Tasks() {
                 id: task.id,
                 text: task.title,
                 color: task.color || "text-gray-600",
-                repeat: task.recurrencia !== null,
+                repeat: task.recurrencia > 0,
                 status: task.status,
                 date: task.date
             };
@@ -152,9 +152,7 @@ export default function Tasks() {
         try {
             const response = await fetch(`${backend}/api/users/${userId}/tasks/${taskId}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData),
             });
 
@@ -162,8 +160,29 @@ export default function Tasks() {
                 throw new Error(`Error: ${response.status}`);
             }
 
-            // Recargar las tareas después de actualizar
-            await fetchTasks();
+            // Actualizar la tarea localmente sin volver a fetch todas
+            setTasks(prevTasks => {
+                const updateTaskInList = (taskList) =>
+                    taskList.map(task =>
+                        task.id === taskId ? { ...task, ...updateData } : task
+                    );
+
+                // Actualizar atrasado
+                const newAtrasado = updateTaskInList(prevTasks.atrasado);
+                // Actualizar sinFecha
+                const newSinFecha = updateTaskInList(prevTasks.sinFecha);
+                // Actualizar conFecha
+                const newConFecha = {};
+                for (const date in prevTasks.conFecha) {
+                    newConFecha[date] = updateTaskInList(prevTasks.conFecha[date]);
+                }
+
+                return {
+                    atrasado: newAtrasado,
+                    sinFecha: newSinFecha,
+                    conFecha: newConFecha
+                };
+            });
 
         } catch (err) {
             console.error('Error al actualizar tarea:', err);
