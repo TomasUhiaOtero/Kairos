@@ -308,7 +308,7 @@ export default function Tasks() {
                                     type="checkbox"
                                     checked={activeFilters.atrasado}
                                     onChange={() => toggleFilter('atrasado')}
-                                    className="w-4 h-4 text-red-600 rounded focus:ring-red-500 ${task.color}"
+                                    className="circular-checkbox text-gray-600 focus:ring-red-500"
                                 />
                                 <span className="text-gray-700">Tareas Atrasadas</span>
                                 <span className="ml-auto text-sm text-gray-500">({tasks.atrasado.length})</span>
@@ -320,12 +320,10 @@ export default function Tasks() {
                                     type="checkbox"
                                     checked={activeFilters.conFecha}
                                     onChange={() => toggleFilter('conFecha')}
-                                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    className="circular-checkbox text-gray-600 focus:ring-blue-500"
                                 />
                                 <span className="text-gray-700">Tareas con Fecha</span>
-                                <span className="ml-auto text-sm text-gray-500">
-                                    ({Object.values(tasks.conFecha).flat().length})
-                                </span>
+                                <span className="ml-auto text-sm text-gray-500">({Object.values(tasks.conFecha).flat().length})</span>
                             </label>
 
                             {/* Opción Sin Fecha */}
@@ -334,7 +332,7 @@ export default function Tasks() {
                                     type="checkbox"
                                     checked={activeFilters.sinFecha}
                                     onChange={() => toggleFilter('sinFecha')}
-                                    className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                                    className="circular-checkbox text-gray-600 focus:ring-green-500"
                                 />
                                 <span className="text-gray-700">Tareas sin Fecha</span>
                                 <span className="ml-auto text-sm text-gray-500">({tasks.sinFecha.length})</span>
