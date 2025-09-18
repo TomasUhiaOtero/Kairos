@@ -14,6 +14,7 @@ from .routes import api, token_required
 
 apiEvent = Blueprint('apiEvent', __name__)
 
+
 def _parse_iso_datetime(value: str) -> datetime:
     """
     Intenta parsear un datetime en ISO 8601. Acepta formatos:
@@ -65,7 +66,8 @@ def _compose_datetimes_from_parts(payload: dict) -> Optional[tuple[datetime, dat
         end_dt = datetime.combine(d_date, time(eh, em))
         return start_dt, end_dt
     except Exception as e:
-        raise ValueError("Partes de fecha/hora inválidas (usa ISO: YYYY-MM-DD y HH:MM)") from e
+        raise ValueError(
+            "Partes de fecha/hora inválidas (usa ISO: YYYY-MM-DD y HH:MM)") from e
 
 
 def _get_datetimes(payload: dict) -> tuple[datetime, datetime]:
@@ -88,7 +90,8 @@ def _get_datetimes(payload: dict) -> tuple[datetime, datetime]:
     if parts:
         return parts
 
-    raise ValueError("Debes enviar start/end en ISO o bien date + start_time + end_time")
+    raise ValueError(
+        "Debes enviar start/end en ISO o bien date + start_time + end_time")
 
 
 def _validate_ownership(calendar_id: Optional[int], user_id: int):
@@ -97,7 +100,8 @@ def _validate_ownership(calendar_id: Optional[int], user_id: int):
     """
     if not calendar_id:
         return
-    calendar = Calendar.query.filter_by(id=calendar_id, user_id=user_id).first()
+    calendar = Calendar.query.filter_by(
+        id=calendar_id, user_id=user_id).first()
     if not calendar:
         from .utils import APIException
         raise APIException("El grupo no existe o no pertenece al usuario", 404)
@@ -181,7 +185,8 @@ def create_event(auth_payload):
         raise APIException(str(e), 400)
 
     if end_dt <= start_dt:
-        raise APIException("La hora de fin debe ser posterior a la de inicio", 400)
+        raise APIException(
+            "La hora de fin debe ser posterior a la de inicio", 400)
 
     calendar_id = data.get("calendar_id")
     _validate_ownership(calendar_id, user_id)
@@ -236,7 +241,8 @@ def update_event(auth_payload, event_id: int):
             start_raw = data.get("start_date") or data.get("start")
             end_raw = data.get("end_date") or data.get("end")
             if not start_raw or not end_raw:
-                raise APIException("Para actualizar el rango envía start y end", 400)
+                raise APIException(
+                    "Para actualizar el rango envía start y end", 400)
             ev.start_date = _parse_iso_datetime(start_raw)
             ev.end_date = _parse_iso_datetime(end_raw)
         elif any(k in data for k in ("date", "start_time", "end_time")):
@@ -248,7 +254,8 @@ def update_event(auth_payload, event_id: int):
         raise APIException(str(e), 400)
 
     if ev.end_date <= ev.start_date:
-        raise APIException("La hora de fin debe ser posterior a la de inicio", 400)
+        raise APIException(
+            "La hora de fin debe ser posterior a la de inicio", 400)
 
     if "description" in data:
         ev.description = (data.get("description") or "").strip() or None
@@ -278,3 +285,128 @@ def delete_event(auth_payload, event_id: int):
     db.session.delete(ev)
     db.session.commit()
     return jsonify({"message": "Evento eliminado"}), 200
+
+    # ---------- Calendars ----------
+
+
+@api.route("/calendars", methods=["OPTIONS"])
+@api.route("/calendars/<int:calendar_id>", methods=["OPTIONS"])
+def calendars_options(calendar_id=None):
+    # CORS preflight
+    return ("", 204)
+
+
+@api.route("/calendars", methods=["GET"])
+@token_required
+def list_calendars(auth_payload):
+    """
+    Lista todos los calendarios del usuario autenticado.
+    """
+    user_id = auth_payload.get("user_id")
+    calendars = Calendar.query.filter_by(
+        user_id=user_id).order_by(Calendar.id.asc()).all()
+    return jsonify([c.serialize() for c in calendars]), 200
+
+
+@api.route("/calendars/<int:calendar_id>", methods=["GET"])
+@token_required
+def get_calendar(auth_payload, calendar_id: int):
+    """
+    Devuelve un calendario específico.
+    """
+    from .utils import APIException
+    user_id = auth_payload.get("user_id")
+
+    cal = Calendar.query.filter_by(id=calendar_id, user_id=user_id).first()
+    if not cal:
+        raise APIException("Calendario no encontrado", 404)
+
+    return jsonify(cal.serialize()), 200
+
+
+@api.route("/calendars", methods=["POST"])
+@token_required
+def create_calendar(auth_payload):
+    """
+    Crea un calendario para el usuario autenticado.
+    Body JSON:
+    {
+      "name": "Trabajo",
+      "color": "#3498db",
+      "description": "Calendario de reuniones laborales"
+    }
+    """
+    from .utils import APIException
+
+    user_id = auth_payload.get("user_id")
+    data = request.get_json() or {}
+
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise APIException("El nombre es requerido", 400)
+
+    description = (data.get("description") or "").strip() or None
+    color = (data.get("color") or "").strip() or None
+
+    cal = Calendar(
+        user_id=user_id,
+        name=name,
+        description=description,
+        color=color
+    )
+    db.session.add(cal)
+    db.session.commit()
+
+    return jsonify(cal.serialize()), 201
+
+
+@api.route("/calendars/<int:calendar_id>", methods=["PUT", "PATCH"])
+@token_required
+def update_calendar(auth_payload, calendar_id: int):
+    """
+    Actualiza un calendario existente.
+    """
+    from .utils import APIException
+    user_id = auth_payload.get("user_id")
+    data = request.get_json() or {}
+
+    cal = Calendar.query.filter_by(id=calendar_id, user_id=user_id).first()
+    if not cal:
+        raise APIException("Calendario no encontrado", 404)
+
+    if "name" in data:
+        name = (data.get("name") or "").strip()
+        if not name:
+            raise APIException("El nombre no puede estar vacío", 400)
+        cal.name = name
+
+    if "description" in data:
+        cal.description = (data.get("description") or "").strip() or None
+
+    if "color" in data:
+        cal.color = (data.get("color") or "").strip() or None
+
+    db.session.commit()
+    return jsonify(cal.serialize()), 200
+
+
+@api.route("/calendars/<int:calendar_id>", methods=["DELETE"])
+@token_required
+def delete_calendar(auth_payload, calendar_id: int):
+    """
+    Elimina un calendario (y opcionalmente sus eventos).
+    """
+    from .utils import APIException
+    user_id = auth_payload.get("user_id")
+
+    cal = Calendar.query.filter_by(id=calendar_id, user_id=user_id).first()
+    if not cal:
+        raise APIException("Calendario no encontrado", 404)
+
+    # Si quieres eliminar también los eventos asociados, descomenta:
+    # Event.query.filter_by(calendar_id=calendar_id, user_id=user_id).delete()
+
+    db.session.delete(cal)
+    db.session.commit()
+
+    return jsonify({"message": "Calendario eliminado"}), 200

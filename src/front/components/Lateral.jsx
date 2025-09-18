@@ -7,13 +7,13 @@ export const Lateral = ({ onClose }) => {
     const [createTask, setCreateTask] = useState(false);
 
     const [title, setTitle] = useState("");
-    const [color, setColor] = useState("#ff0000");
+    const [color, setColor] = useState("#5A8770");
     const [editingId, setEditingId] = useState(null); // ID del item que se edita
     const [editingType, setEditingType] = useState(""); // 'calendar' o 'task'
 
     const resetForm = () => {
         setTitle("");
-        setColor("#ff0000");
+        setColor("#5A8770");
         setEditingId(null);
         setEditingType("");
         setCreateCalendar(false);
@@ -213,8 +213,9 @@ export const Lateral = ({ onClose }) => {
                         </div>
                         <div className="flex items-center space-x-2">
                             <label>Color:</label>
-                            <input type="color" value={color} onChange={handleColorChange} />
+                            <input className="rounded-circle" type="color" value={color} onChange={handleColorChange} />
                             <input
+                            
                                 type="text"
                                 value={color}
                                 onChange={handleInputChange}

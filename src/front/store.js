@@ -1,12 +1,13 @@
-export const initialStore = () => {
-  return {
-    calendar: [], // Lista de calendarios
-    taskGroup: [], // Lista de grupos de tareas
-    events: [], // Eventos individuales asignados a calendarios
-    tasks: [], // Tareas individuales asignadas a grupos
-    completedRecurrentTasks: [], // Instancias completadas de tareas recurrentes
-  };
-};
+// store.js
+
+export const initialStore = () => ({
+  calendar: [], // Lista de calendarios
+  taskGroup: [], // Lista de grupos de tareas
+  events: [], // Eventos individuales asignados a calendarios
+  tasks: [], // Tareas individuales asignadas a grupos
+  completedRecurrentTasks: [], // Instancias completadas de tareas recurrentes
+  user: null, // Usuario logueado
+});
 
 export default function storeReducer(store, action = {}) {
   switch (action.type) {
@@ -31,6 +32,13 @@ export default function storeReducer(store, action = {}) {
         ), // elimina eventos asociados
       };
 
+    case "SET_CALENDARS":
+      return {
+        ...store,
+        calendar: action.payload.calendars || [],
+        events: action.payload.events || [],
+      };
+
     // TASKGROUPS
     case "ADD_TASKGROUP":
       return { ...store, taskGroup: [...store.taskGroup, action.payload] };
@@ -49,10 +57,17 @@ export default function storeReducer(store, action = {}) {
       return {
         ...store,
         taskGroup: store.taskGroup.filter((g) => g.id !== action.payload.id),
-        tasks: store.tasks.filter((t) => t.groupId !== action.payload.id), // elimina tareas asociadas
+        tasks: store.tasks.filter((t) => t.groupId !== action.payload.id),
       };
 
-    // EVENTOS
+    case "SET_TASKGROUPS":
+      return {
+        ...store,
+        taskGroup: action.payload.groups || [],
+        tasks: action.payload.tasks || [],
+      };
+
+    // EVENTS
     case "ADD_EVENT":
       return { ...store, events: [...store.events, action.payload] };
 
@@ -72,7 +87,7 @@ export default function storeReducer(store, action = {}) {
         events: store.events.filter((ev) => ev.id !== action.payload),
       };
 
-    // TAREAS
+    // TASKS
     case "ADD_TASK":
       return { ...store, tasks: [...store.tasks, action.payload] };
 
@@ -90,8 +105,11 @@ export default function storeReducer(store, action = {}) {
         tasks: store.tasks.filter((t) => t.id !== action.payload),
       };
 
-  
+    // USER
+    case "SET_USER":
+      return { ...store, user: action.payload };
+
     default:
-      throw new Error("Unknown action.");
+      throw new Error(`Unknown action: ${action.type}`);
   }
 }

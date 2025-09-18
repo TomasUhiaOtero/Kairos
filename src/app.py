@@ -25,31 +25,9 @@ app.url_map.strict_slashes = False
 # 🔑 Secret key para firmar tokens (usa variable de entorno o valor por defecto)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_APP_KEY', 'change-this-in-prod')
 
-# ===================== CORS (Global) =====================
-# Define el origen del frontend (puedes setearlo en .env del backend)
-FRONTEND_ORIGIN = os.getenv(
-    "FRONTEND_ORIGIN"
-)
-
-# Habilita CORS para todas las rutas /api/*
-CORS(
-    app,
-    resources={r"api/*": {"origins": [FRONTEND_ORIGIN]}},
-    supports_credentials=False  # Si no usas cookies/sesiones, déjalo en False
-)
-
-@app.after_request
-def add_cors_headers(resp):
-    """
-    Refuerza CORS en cualquier respuesta (incluye errores y preflight).
-    Evita bloqueos en entornos como GitHub Codespaces.
-    """
-    resp.headers["Access-Control-Allow-Origin"] = FRONTEND_ORIGIN
-    resp.headers["Vary"] = "Origin"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    return resp
-# =========================================================
+# ===================== CORS - SIMPLE Y FUNCIONAL =====================
+CORS(app)  # Esto permite todos los orígenes automáticamente
+# =====================================================================
 
 # Database configuration
 db_url = os.getenv("DATABASE_URL")
@@ -72,7 +50,6 @@ setup_commands(app)
 app.register_blueprint(api, url_prefix='/api')
 app.register_blueprint(apiEvent, url_prefix='/api')
 
-
 # Handle/serialize known API errors
 @app.errorhandler(APIException)
 def handle_invalid_usage(error):
@@ -88,14 +65,12 @@ def handle_unexpected_error(err):
         pass
     return jsonify({"message": "Internal Server Error", "detail": str(err)}), 500
 
-
 # Generate sitemap with all your endpoints
 @app.route('/')
 def sitemap():
     if ENV == "development":
         return generate_sitemap(app)
     return send_from_directory(static_file_dir, 'index.html')
-
 
 # Any other endpoint will try to serve it like a static file
 @app.route('/<path:path>', methods=['GET'])
@@ -106,18 +81,10 @@ def serve_any_other_file(path):
     response.cache_control.max_age = 0  # avoid cache memory
     return response
 
-
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    return send_from_directory(os.path.join(os.path.dirname(__file__), 'front/assets/img'), filename)
 
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3001))
     app.run(host='0.0.0.0', port=PORT, debug=True)
-
-
-@app.errorhandler(Exception)
-def handle_unexpected_error(err):
-    return jsonify({"message": "Internal Server Error", "detail": str(err)}), 500
-
-
-@app.route('/assets/<path:filename>')
-def serve_assets(filename):
-    return send_from_directory(os.path.join(os.path.dirname(__file__), 'front/assets/img'), filename)
