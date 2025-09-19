@@ -16,10 +16,13 @@ export default function storeReducer(store, action = {}) {
       return { ...store, calendar: [...store.calendar, action.payload] };
 
     case "UPDATE_CALENDAR":
+      console.log(action.payload);
       return {
         ...store,
         calendar: store.calendar.map((cal) =>
-          cal.id === action.payload.id ? { ...cal, ...action.payload } : cal
+          cal.id === action.payload.editingId
+            ? { ...cal, ...action.payload }
+            : cal
         ),
       };
 
@@ -63,7 +66,7 @@ export default function storeReducer(store, action = {}) {
     case "SET_TASKGROUPS":
       return {
         ...store,
-        taskGroup: action.payload.groups || [],
+        taskGroup: action.payload.taskgroup || [],
         tasks: action.payload.tasks || [],
       };
 

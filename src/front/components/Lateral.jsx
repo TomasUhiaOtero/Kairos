@@ -1,4 +1,5 @@
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import { apiCreateCalendar, apiCreateTaskGroup, apiUpdateCalendar, apiUpdateTaskGroup, apiDeleteCalendar, apiDeleteTaskGroup } from "../lib/api.js"
 import React, { useState } from "react";
 
 export const Lateral = ({ onClose }) => {
@@ -37,15 +38,23 @@ export const Lateral = ({ onClose }) => {
 
         if (editingId !== null && editingType === "calendar") {
             // Editar calendario existente
+            const calendar = {
+                editingId, title, color
+            }
+            apiUpdateCalendar(calendar)
             dispatch({
                 type: "UPDATE_CALENDAR",
-                payload: { id: editingId, title, color },
+                payload: calendar,
             });
         } else {
+            const calendar = {
+                title, color
+            }
             // Crear nuevo calendario
+            apiCreateCalendar(calendar)
             dispatch({
                 type: "ADD_CALENDAR",
-                payload: { id: generateId(), title, color },
+                payload: calendar,
             });
         }
 
@@ -59,15 +68,24 @@ export const Lateral = ({ onClose }) => {
 
         if (editingId !== null && editingType === "task") {
             // Editar grupo de tareas existente
+            const taskGroup = {
+                id: editingId, title, color
+            }
+            apiUpdateTaskGroup(taskGroup)
             dispatch({
                 type: "UPDATE_TASKGROUP",
                 payload: { id: editingId, title, color },
             });
         } else {
             // Crear nuevo grupo de tareas
+            const taskGroup = {
+                title, color
+            }
+            // Crear nuevo calendario
+            apiCreateTaskGroup(taskGroup)
             dispatch({
                 type: "ADD_TASKGROUP",
-                payload: { id: generateId(), title, color },
+                payload: taskGroup,
             });
         }
 
@@ -78,7 +96,7 @@ export const Lateral = ({ onClose }) => {
     const handleEdit = (item, type) => {
         setTitle(item.title);
         setColor(item.color);
-        setEditingId(item.id); 
+        setEditingId(item.id);
         setEditingType(type);
         if (type === "calendar") setCreateCalendar(true);
         else setCreateTask(true);
@@ -121,7 +139,7 @@ export const Lateral = ({ onClose }) => {
                     <div className="space-y-2">
                         {store.calendar.length === 0 && <p className="text-sm text-gray-500">No hay calendarios aún</p>}
                         {store.calendar.map((cal) => (
-                            <div key={cal.id} className="flex items-center justify-between">
+                            <div key={generateId()} className="flex items-center justify-between">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cal.color }}></div>
                                     <span className="text-sm text-gray-700">{cal.title}</span>
@@ -148,7 +166,7 @@ export const Lateral = ({ onClose }) => {
                     <div className="space-y-2">
                         {store.taskGroup.length === 0 && <p className="text-sm text-gray-500">No hay grupos de tareas aún</p>}
                         {store.taskGroup.map((group) => (
-                            <div key={group.id} className="flex items-center justify-between">
+                            <div key={generateId()} className="flex items-center justify-between">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }}></div>
                                     <span className="text-sm text-gray-700">{group.title}</span>
@@ -215,7 +233,7 @@ export const Lateral = ({ onClose }) => {
                             <label>Color:</label>
                             <input className="rounded-circle" type="color" value={color} onChange={handleColorChange} />
                             <input
-                            
+
                                 type="text"
                                 value={color}
                                 onChange={handleInputChange}

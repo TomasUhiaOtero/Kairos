@@ -331,9 +331,8 @@ def create_calendar(auth_payload):
     Crea un calendario para el usuario autenticado.
     Body JSON:
     {
-      "name": "Trabajo",
+      "title": "Trabajo",
       "color": "#3498db",
-      "description": "Calendario de reuniones laborales"
     }
     """
     from .utils import APIException
@@ -341,17 +340,15 @@ def create_calendar(auth_payload):
     user_id = auth_payload.get("user_id")
     data = request.get_json() or {}
 
-    name = (data.get("name") or "").strip()
-    if not name:
-        raise APIException("El nombre es requerido", 400)
+    title = (data.get("title") or "").strip()
+    if not title:
+        raise APIException("El title es requerido", 400)
 
-    description = (data.get("description") or "").strip() or None
     color = (data.get("color") or "").strip() or None
 
     cal = Calendar(
         user_id=user_id,
-        name=name,
-        description=description,
+        title=title,
         color=color
     )
     db.session.add(cal)
@@ -369,19 +366,17 @@ def update_calendar(auth_payload, calendar_id: int):
     from .utils import APIException
     user_id = auth_payload.get("user_id")
     data = request.get_json() or {}
-
+    print(data)
     cal = Calendar.query.filter_by(id=calendar_id, user_id=user_id).first()
+    print(cal)
     if not cal:
         raise APIException("Calendario no encontrado", 404)
 
-    if "name" in data:
-        name = (data.get("name") or "").strip()
-        if not name:
+    if "title" in data:
+        title = (data.get("title") or "").strip()
+        if not title:
             raise APIException("El nombre no puede estar vacío", 400)
-        cal.name = name
-
-    if "description" in data:
-        cal.description = (data.get("description") or "").strip() or None
+        cal.title = title
 
     if "color" in data:
         cal.color = (data.get("color") or "").strip() or None

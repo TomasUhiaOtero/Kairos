@@ -1,9 +1,28 @@
-import React from "react";
+import React, { useEffect } from "react";
 import Calendar from "../components/Calendar";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import { apiListTaskGroups, apiListCalendars } from "../lib/api.js"
 
 export const Inicio = () => {
     const { store, dispatch } = useGlobalReducer();
+
+    useEffect(() => {
+        const getData = async () => {
+            const listTaskGroup = await apiListTaskGroups()
+            const listCalendar = await apiListCalendars()
+            dispatch({
+                type: "SET_CALENDARS",
+                payload: { calendars: listCalendar },
+            });
+            dispatch({
+                type: "SET_TASKGROUPS",
+                payload: { taskgroup: listTaskGroup },
+            });
+            console.log(listTaskGroup)
+        }
+        getData()
+
+    }, [])
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
