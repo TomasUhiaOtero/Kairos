@@ -4,6 +4,7 @@ export const initialStore = () => {
     taskGroup: [], // Lista de grupos de tareas
     events: [], // Eventos individuales asignados a calendarios
     tasks: [], // Tareas individuales asignadas a grupos
+    completedRecurrentTasks: [], // Instancias completadas de tareas recurrentes
   };
 };
 
@@ -59,7 +60,9 @@ export default function storeReducer(store, action = {}) {
       return {
         ...store,
         events: store.events.map((event) =>
-          event.id === action.payload.id ? { ...event, ...action.payload } : event
+          event.id === action.payload.id
+            ? { ...event, ...action.payload }
+            : event
         ),
       };
 
@@ -87,6 +90,7 @@ export default function storeReducer(store, action = {}) {
         tasks: store.tasks.filter((t) => t.id !== action.payload),
       };
 
+  
     default:
       throw new Error("Unknown action.");
   }

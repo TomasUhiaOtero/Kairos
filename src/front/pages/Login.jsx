@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const Login = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [status, setStatus] = useState({ loading: false, error: null, ok: null });
+  const navigate = useNavigate();
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -27,6 +29,7 @@ export const Login = () => {
       if (data?.token) localStorage.setItem("token", data.token);
 
       setStatus({ loading: false, error: null, ok: "¡Login correcto!" });
+      navigate("/"); // ⬅️ redirige a la home
     } catch (err) {
       setStatus({ loading: false, error: err.message, ok: null });
     }
