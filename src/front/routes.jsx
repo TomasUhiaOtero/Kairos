@@ -18,6 +18,7 @@ import { ResetPassword } from "./pages/ResetPassword";
 import EventosTareas from "./pages/EventosTareas";
 import Config from "./pages/Config";
 
+
 export const router = createBrowserRouter(
   createRoutesFromElements(
     // Root Route: All navigation will start from here.
@@ -30,6 +31,7 @@ export const router = createBrowserRouter(
       <Route path="/signup" element={<Signup />} />
 
 
+
       <Route path="/forgot" element={<ForgotPassword />} />
       <Route path="/reset" element={<ResetPassword />} />
 
@@ -37,6 +39,7 @@ export const router = createBrowserRouter(
       <Route path="/eventos-tareas" element={<EventosTareas />} />
       {/* 👇 Nueva ruta de configuración */}
       <Route path="/config" element={<Config />} />
+
 
     </Route>
   )

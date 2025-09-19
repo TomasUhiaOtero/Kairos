@@ -1,3 +1,4 @@
+
 import TablaEventos from "../components/TablaEventos";
 import Tasks from "../components/Tasks";
 
@@ -10,3 +11,4 @@ export const EventosTareas=()=>{
     );
 }
 export default EventosTareas;
+

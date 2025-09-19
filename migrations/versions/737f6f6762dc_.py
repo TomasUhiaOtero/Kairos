@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: f9afe306ae62
+Revision ID: 737f6f6762dc
 Revises: 
-Create Date: 2025-09-15 09:04:53.450006
+Create Date: 2025-09-15 10:08:53.982641
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'f9afe306ae62'
+revision = '737f6f6762dc'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -57,7 +57,6 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('calendar_id', sa.Integer(), nullable=False),
-    sa.Column('task_group_id', sa.Integer(), nullable=True),
     sa.Column('title', sa.String(length=200), nullable=False),
     sa.Column('start_date', sa.DateTime(), nullable=False),
     sa.Column('end_date', sa.DateTime(), nullable=False),
@@ -66,7 +65,6 @@ def upgrade():
     sa.Column('google_event_id', sa.String(length=255), nullable=True),
     sa.Column('status', sa.String(length=50), nullable=False),
     sa.ForeignKeyConstraint(['calendar_id'], ['calendar.id'], ),
-    sa.ForeignKeyConstraint(['task_group_id'], ['task_group.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -79,8 +77,6 @@ def upgrade():
     sa.Column('date', sa.DateTime(), nullable=False),
     sa.Column('recurrencia', sa.Integer(), nullable=False),
     sa.Column('color', sa.String(length=50), nullable=False),
-    sa.Column('calendar_id', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['calendar_id'], ['calendar.id'], ),
     sa.ForeignKeyConstraint(['task_group_id'], ['task_group.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')

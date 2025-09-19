@@ -4,6 +4,7 @@ import TaskItem from './TaskItem';
 
 
 export default function Tasks() {
+    const backend = import.meta.env.VITE_BACKEND_URL;
     // Estado para las tareas obtenidas de la API
     const [tasks, setTasks] = useState({
         atrasado: [],
@@ -29,18 +30,18 @@ export default function Tasks() {
     // Función para obtener tareas de la API
     const fetchTasks = async () => {
         try {
+            console.log(backend)
             setLoading(true);
-            const response = await fetch(`/api/users/${userId}/tasks`);
+            const response = await fetch(`${backend}/api/users/${userId}/tasks`);
 
             if (!response.ok) {
                 throw new Error(`Error: ${response.status}`);
             }
 
             const apiTasks = await response.json();
-
             // Procesar y categorizar las tareas
             const processedTasks = processTasks(apiTasks);
-            setTasks(processedTasks);
+            setTasks(processedTasks)
 
         } catch (err) {
             console.error('Error al obtener tareas:', err);
@@ -60,12 +61,11 @@ export default function Tasks() {
         };
 
         apiTasks.forEach(task => {
-            // Mapear los campos de la API a la estructura del componente
             const processedTask = {
                 id: task.id,
                 text: task.title,
                 color: task.color || "text-gray-600",
-                repeat: task.recurrencia !== null,
+                repeat: task.recurrencia > 0,
                 status: task.status,
                 date: task.date
             };
@@ -73,20 +73,16 @@ export default function Tasks() {
             if (task.date) {
                 const taskDate = new Date(task.date);
 
-                // Si la tarea tiene fecha y está vencida
-                if (taskDate < now && task.status === 'pending') {
+                if (taskDate < now && task.status === false) {
                     categorizedTasks.atrasado.push(processedTask);
                 } else {
-                    // Formatear la fecha para mostrar
                     const formattedDate = formatDate(taskDate);
-
                     if (!categorizedTasks.conFecha[formattedDate]) {
                         categorizedTasks.conFecha[formattedDate] = [];
                     }
                     categorizedTasks.conFecha[formattedDate].push(processedTask);
                 }
             } else {
-                // Tareas sin fecha
                 categorizedTasks.sinFecha.push(processedTask);
             }
         });
@@ -110,7 +106,7 @@ export default function Tasks() {
     // Función para crear una nueva tarea
     const createTask = async (taskData) => {
         try {
-            const response = await fetch(`/api/users/${userId}/tasks`, {
+            const response = await fetch(`${backend}/api/users/${userId}/tasks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -134,7 +130,7 @@ export default function Tasks() {
     // Función para eliminar una tarea
     const deleteTask = async (taskId) => {
         try {
-            const response = await fetch(`/api/users/${userId}/tasks/${taskId}`, {
+            const response = await fetch(`${backend}/api/users/${userId}/tasks/${taskId}`, {
                 method: 'DELETE',
             });
 
@@ -154,11 +150,9 @@ export default function Tasks() {
     // Función para actualizar una tarea
     const updateTask = async (taskId, updateData) => {
         try {
-            const response = await fetch(`/api/users/${userId}/tasks/${taskId}`, {
+            const response = await fetch(`${backend}/api/users/${userId}/tasks/${taskId}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData),
             });
 
@@ -166,8 +160,29 @@ export default function Tasks() {
                 throw new Error(`Error: ${response.status}`);
             }
 
-            // Recargar las tareas después de actualizar
-            await fetchTasks();
+            // Actualizar la tarea localmente sin volver a fetch todas
+            setTasks(prevTasks => {
+                const updateTaskInList = (taskList) =>
+                    taskList.map(task =>
+                        task.id === taskId ? { ...task, ...updateData } : task
+                    );
+
+                // Actualizar atrasado
+                const newAtrasado = updateTaskInList(prevTasks.atrasado);
+                // Actualizar sinFecha
+                const newSinFecha = updateTaskInList(prevTasks.sinFecha);
+                // Actualizar conFecha
+                const newConFecha = {};
+                for (const date in prevTasks.conFecha) {
+                    newConFecha[date] = updateTaskInList(prevTasks.conFecha[date]);
+                }
+
+                return {
+                    atrasado: newAtrasado,
+                    sinFecha: newSinFecha,
+                    conFecha: newConFecha
+                };
+            });
 
         } catch (err) {
             console.error('Error al actualizar tarea:', err);
@@ -256,7 +271,7 @@ export default function Tasks() {
                 {activeFilters.atrasado && (
                     <TasksSection title="Atrasado">
                         {tasks.atrasado.map((task) => (
-                            <TaskItem key={task.id} {...task} />
+                            <TaskItem key={task.id} {...task} onUpdate={updateTask} onDelete={deleteTask} />
                         ))}
                     </TasksSection>
                 )}
@@ -266,7 +281,7 @@ export default function Tasks() {
                     {activeFilters.conFecha && Object.entries(tasks.conFecha).map(([date, taskList]) => (
                         <TasksSection key={date} title={date}>
                             {taskList.map((task) => (
-                                <TaskItem key={task.id} {...task} />
+                                <TaskItem key={task.id} {...task} onUpdate={updateTask} onDelete={deleteTask} />
                             ))}
                         </TasksSection>
                     ))}
@@ -275,7 +290,7 @@ export default function Tasks() {
                 {activeFilters.sinFecha && (
                     <TasksSection title="Sin fecha">
                         {tasks.sinFecha.length > 0 ? (
-                            tasks.sinFecha.map((task) => <TaskItem key={task.id} {...task} />)
+                            tasks.sinFecha.map((task) => <TaskItem key={task.id} {...task} onUpdate={updateTask} onDelete={deleteTask} />)
                         ) : (
                             <div className="text-gray-400 text-sm p-4">No hay tareas</div>
                         )}
@@ -312,7 +327,7 @@ export default function Tasks() {
                                     type="checkbox"
                                     checked={activeFilters.atrasado}
                                     onChange={() => toggleFilter('atrasado')}
-                                    className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                                    className="circular-checkbox text-gray-600 focus:ring-red-500"
                                 />
                                 <span className="text-gray-700">Tareas Atrasadas</span>
                                 <span className="ml-auto text-sm text-gray-500">({tasks.atrasado.length})</span>
@@ -324,12 +339,10 @@ export default function Tasks() {
                                     type="checkbox"
                                     checked={activeFilters.conFecha}
                                     onChange={() => toggleFilter('conFecha')}
-                                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    className="circular-checkbox text-gray-600 focus:ring-blue-500"
                                 />
                                 <span className="text-gray-700">Tareas con Fecha</span>
-                                <span className="ml-auto text-sm text-gray-500">
-                                    ({Object.values(tasks.conFecha).flat().length})
-                                </span>
+                                <span className="ml-auto text-sm text-gray-500">({Object.values(tasks.conFecha).flat().length})</span>
                             </label>
 
                             {/* Opción Sin Fecha */}
@@ -338,7 +351,7 @@ export default function Tasks() {
                                     type="checkbox"
                                     checked={activeFilters.sinFecha}
                                     onChange={() => toggleFilter('sinFecha')}
-                                    className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                                    className="circular-checkbox text-gray-600 focus:ring-green-500"
                                 />
                                 <span className="text-gray-700">Tareas sin Fecha</span>
                                 <span className="ml-auto text-sm text-gray-500">({tasks.sinFecha.length})</span>
