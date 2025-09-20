@@ -16,24 +16,22 @@ export default function storeReducer(store, action = {}) {
       return { ...store, calendar: [...store.calendar, action.payload] };
 
     case "UPDATE_CALENDAR":
-      console.log(action.payload);
-      return {
-        ...store,
-        calendar: store.calendar.map((cal) =>
-          cal.id === action.payload.editingId
-            ? { ...cal, ...action.payload }
-            : cal
-        ),
-      };
+  return {
+    ...store,
+    calendar: store.calendar.map((cal) =>
+      cal.id === action.payload.id ? { ...cal, ...action.payload } : cal
+    ),
+  };
 
     case "DELETE_CALENDAR":
-      return {
-        ...store,
-        calendar: store.calendar.filter((cal) => cal.id !== action.payload.id),
-        events: store.events.filter(
-          (ev) => ev.calendarId !== action.payload.id
-        ), // elimina eventos asociados
-      };
+  return {
+    ...store,
+    calendar: store.calendar.filter((cal) => cal.id !== action.payload.id),
+    events: store.events.filter(
+      (ev) =>
+        ev.calendarId !== action.payload.id && ev.calendar_id !== action.payload.id
+    ),
+  };
 
     case "SET_CALENDARS":
       return {
@@ -50,18 +48,18 @@ export default function storeReducer(store, action = {}) {
       return {
         ...store,
         taskGroup: store.taskGroup.map((group) =>
-          group.id === action.payload.id
-            ? { ...group, ...action.payload }
-            : group
+          group.id === action.payload.id ? { ...group, ...action.payload } : group
         ),
-      };
+      }
 
     case "DELETE_TASKGROUP":
-      return {
-        ...store,
-        taskGroup: store.taskGroup.filter((g) => g.id !== action.payload.id),
-        tasks: store.tasks.filter((t) => t.groupId !== action.payload.id),
-      };
+  return {
+    ...store,
+    taskGroup: store.taskGroup.filter((g) => g.id !== action.payload.id),
+    tasks: store.tasks.filter(
+      (t) => t.groupId !== action.payload.id && t.task_group_id !== action.payload.id
+    ),
+  };
 
     case "SET_TASKGROUPS":
       return {

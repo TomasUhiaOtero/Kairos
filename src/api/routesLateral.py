@@ -60,4 +60,39 @@ def create_task_group(auth_payload):
     tg = TaskGroup(user_id=user_id, title=title, color=color)
     db.session.add(tg)
     db.session.commit()
-    return jsonify({"message": "prueba"}), 200
+    return jsonify(tg.serialize_with_tasks()), 201
+
+
+@api.route("/task-groups/<int:group_id>", methods=["PUT", "PATCH"])
+@token_required
+def update_task_group(auth_payload, group_id: int):
+    user_id = auth_payload.get("user_id")
+    data = request.get_json() or {}
+
+    tg = TaskGroup.query.filter_by(id=group_id, user_id=user_id).first()
+    if not tg:
+        raise APIException("Grupo no encontrado", 404)
+
+    if "title" in data:
+        title = (data.get("title") or "").strip()
+        if not title:
+            raise APIException("El título no puede estar vacío", 400)
+        tg.title = title
+
+    if "color" in data:
+        tg.color = (data.get("color") or "").strip() or None
+
+    db.session.commit()
+    return jsonify(tg.serialize_with_tasks()), 200
+
+@api.route("/task-groups/<int:group_id>", methods=["DELETE"])
+@token_required
+def delete_task_group(auth_payload, group_id: int):
+    user_id = auth_payload.get("user_id")
+    tg = TaskGroup.query.filter_by(id=group_id, user_id=user_id).first()
+    if not tg:
+        raise APIException("Grupo no encontrado", 404)
+
+    db.session.delete(tg)
+    db.session.commit()
+    return jsonify({"message": "Grupo eliminado"}), 200

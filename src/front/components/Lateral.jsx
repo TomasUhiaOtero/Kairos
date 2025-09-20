@@ -32,65 +32,58 @@ export const Lateral = ({ onClose }) => {
     const generateId = () => String(Date.now() + Math.random());
 
     // Guardar calendario (crear o editar)
-    const handleSubmitCalendar = (e) => {
-        e.preventDefault();
-        if (!title) return;
+    const handleSubmitCalendar = async (e) => {
+  e.preventDefault();
+  if (!title) return;
 
-        if (editingId !== null && editingType === "calendar") {
-            // Editar calendario existente
-            const calendar = {
-                editingId, title, color
-            }
-            apiUpdateCalendar(calendar)
-            dispatch({
-                type: "UPDATE_CALENDAR",
-                payload: calendar,
-            });
-        } else {
-            const calendar = {
-                title, color
-            }
-            // Crear nuevo calendario
-            apiCreateCalendar(calendar)
-            dispatch({
-                type: "ADD_CALENDAR",
-                payload: calendar,
-            });
-        }
-
-        resetForm();
-    };
+  try {
+    if (editingId !== null && editingType === "calendar") {
+      // EDITAR
+      const updated = await apiUpdateCalendar({ editingId, title, color });
+      dispatch({
+        type: "UPDATE_CALENDAR",
+        payload: updated, // ⬅️ usar lo que devuelve el backend
+      });
+    } else {
+      // CREAR
+      const created = await apiCreateCalendar({ title, color });
+      dispatch({
+        type: "ADD_CALENDAR",
+        payload: created, // ⬅️ así guardas {id, title, color}
+      });
+    }
+    resetForm();
+  } catch (err) {
+    console.error("Error guardando calendario:", err);
+  }
+};
 
     // Guardar grupo de tareas (crear o editar)
-    const handleSubmitTask = (e) => {
-        e.preventDefault();
-        if (!title) return;
+   const handleSubmitTask = async (e) => {
+  e.preventDefault();
+  if (!title) return;
 
-        if (editingId !== null && editingType === "task") {
-            // Editar grupo de tareas existente
-            const taskGroup = {
-                id: editingId, title, color
-            }
-            apiUpdateTaskGroup(taskGroup)
-            dispatch({
-                type: "UPDATE_TASKGROUP",
-                payload: { id: editingId, title, color },
-            });
-        } else {
-            // Crear nuevo grupo de tareas
-            const taskGroup = {
-                title, color
-            }
-            // Crear nuevo calendario
-            apiCreateTaskGroup(taskGroup)
-            dispatch({
-                type: "ADD_TASKGROUP",
-                payload: taskGroup,
-            });
-        }
-
-        resetForm();
-    };
+  try {
+    if (editingId !== null && editingType === "task") {
+      // EDITAR
+      const updated = await apiUpdateTaskGroup({ id: editingId, title, color });
+      dispatch({
+        type: "UPDATE_TASKGROUP",
+        payload: updated, // ⬅️ respuesta del backend (con id)
+      });
+    } else {
+      // CREAR
+      const created = await apiCreateTaskGroup({ title, color });
+      dispatch({
+        type: "ADD_TASKGROUP",
+        payload: created, // ⬅️ ya trae id
+      });
+    }
+    resetForm();
+  } catch (err) {
+    console.error("Error guardando grupo de tareas:", err);
+  }
+};
 
     // Editar item
     const handleEdit = (item, type) => {
@@ -103,11 +96,20 @@ export const Lateral = ({ onClose }) => {
     };
 
     // Borrar item
-    const handleDelete = (item, type) => {
-        if (type === "calendar") {
+    const handleDelete = async (item, type) => {
+        try {
+            if (type === "calendar") {
+            // 1) Backend
+            await apiDeleteCalendar(item.id);
+            // 2) Store
             dispatch({ type: "DELETE_CALENDAR", payload: { id: item.id } });
-        } else {
+            } else {
+            await apiDeleteTaskGroup(item.id);
             dispatch({ type: "DELETE_TASKGROUP", payload: { id: item.id } });
+        }
+      } catch (err) {
+            console.error("Error eliminando:", err);
+            // aquí puedes mostrar un toast/alert si usas alguno
         }
     };
 
@@ -139,7 +141,7 @@ export const Lateral = ({ onClose }) => {
                     <div className="space-y-2">
                         {store.calendar.length === 0 && <p className="text-sm text-gray-500">No hay calendarios aún</p>}
                         {store.calendar.map((cal) => (
-                            <div key={generateId()} className="flex items-center justify-between">
+                            <div key={cal.id} className="flex items-center justify-between">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cal.color }}></div>
                                     <span className="text-sm text-gray-700">{cal.title}</span>
@@ -166,7 +168,7 @@ export const Lateral = ({ onClose }) => {
                     <div className="space-y-2">
                         {store.taskGroup.length === 0 && <p className="text-sm text-gray-500">No hay grupos de tareas aún</p>}
                         {store.taskGroup.map((group) => (
-                            <div key={generateId()} className="flex items-center justify-between">
+                            <div key={group.id} className="flex items-center justify-between">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }}></div>
                                     <span className="text-sm text-gray-700">{group.title}</span>
