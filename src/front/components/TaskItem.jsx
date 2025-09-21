@@ -13,11 +13,10 @@ export default function TaskItem({ id, text, color, repeat, status, onDelete, on
         setIsCompleted(newStatus);
 
         try {
-            // Solo actualizar el status en la API, sin recargar todas las tareas
             await onUpdate(id, { status: newStatus });
         } catch (error) {
             console.error('Error al actualizar tarea:', error);
-            setIsCompleted(previousStatus); // rollback si falla
+            setIsCompleted(previousStatus);
         }
     };
 
@@ -84,8 +83,12 @@ export default function TaskItem({ id, text, color, repeat, status, onDelete, on
                 {/* Checkbox */}
                 <button
                     onClick={handleToggleComplete}
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
-            ${isCompleted ? `${color} bg-current border-current` : 'border-gray-300 hover:border-gray-400'}`}
+                    style={
+                        isCompleted
+                            ? { backgroundColor: color, borderColor: color }
+                            : { borderColor: '#d1d5db' } // gris por defecto
+                    }
+                    className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
                 >
                     {isCompleted && (
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +112,8 @@ export default function TaskItem({ id, text, color, repeat, status, onDelete, on
                     />
                 ) : (
                     <span
-                        className={`flex-1 cursor-pointer ${color} ${isCompleted ? 'line-through opacity-60' : ''}`}
+                        style={!isCompleted ? { color } : {}}
+                        className={`flex-1 cursor-pointer ${isCompleted ? 'line-through opacity-60' : ''}`}
                         onDoubleClick={() => setIsEditing(true)}
                     >
                         {text}

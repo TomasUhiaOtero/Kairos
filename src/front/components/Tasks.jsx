@@ -3,8 +3,10 @@ import TasksSection from "./TasksSection";
 import TaskItem from "./TaskItem";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
 
+
 export default function Tasks({ tasks }) {
-    const { dispatch } = useGlobalReducer();
+    const { store, dispatch } = useGlobalReducer();
+    const taskGroups = store.taskGroup || [];
 
     // Estado para los filtros
     const [showFilterPopup, setShowFilterPopup] = useState(false);
@@ -99,7 +101,7 @@ export default function Tasks({ tasks }) {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4 border-gray-400">
+        <div className="min-h-screen flex flex-col items-center p-4 border-gray-400">
             {/* Encabezado */}
             <div className="relative w-full max-w-lg mb-4 flex items-center">
                 <h1 className="text-2xl font-bold mx-auto">Tareas</h1>
@@ -112,7 +114,7 @@ export default function Tasks({ tasks }) {
             </div>
 
             {/* Contenedor general */}
-            <div className="w-full max-w-2xl border border-gray-300 shadow-md rounded-2xl bg-white p-10 space-y-20">
+            <div className="w-full max-w-2xl border-gray-300 shadow-md rounded-2xl bg-white p-10 space-y-20">
                 {/* Sección Atrasado */}
                 {activeFilters.atrasado && (
                     <TasksSection title="Atrasado">
@@ -120,6 +122,7 @@ export default function Tasks({ tasks }) {
                             <TaskItem
                                 key={task.id}
                                 {...task}
+                                color={taskGroups.find(g => g.id === task.groupId)?.color || '#000000'}
                                 onUpdate={updateTask}
                                 onDelete={deleteTask}
                             />
@@ -135,6 +138,7 @@ export default function Tasks({ tasks }) {
                                 <TaskItem
                                     key={task.id}
                                     {...task}
+                                    color={taskGroups.find(g => g.id === task.groupId)?.color || '#000000'}
                                     onUpdate={updateTask}
                                     onDelete={deleteTask}
                                 />
@@ -150,6 +154,7 @@ export default function Tasks({ tasks }) {
                                 <TaskItem
                                     key={task.id}
                                     {...task}
+                                    color={taskGroups.find(g => g.id === task.groupId)?.color || '#000000'}
                                     onUpdate={updateTask}
                                     onDelete={deleteTask}
                                 />
