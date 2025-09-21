@@ -321,49 +321,74 @@ const toBackendEventBody = (evt) => {
     // --- Drag & Resize ---
     // MODIFICADO: al mover/redimensionar EVENTO, persiste en backend
     const handleEventDrop = async (info) => {
-      const { id, start, end, allDay } = info.event;
-      const type = info.event.extendedProps.type;
+  const { id, start, end, allDay } = info.event;
+  const type = info.event.extendedProps.type;
 
-      const updatedItem = type === 'event'
-        ? store.events.find(e => String(e.id) === String(id))
-        : store.tasks.find(t => String(t.id) === String(id));
+  const updatedItem = type === 'event'
+    ? store.events.find(e => String(e.id) === String(id))
+    : store.tasks.find(t => String(t.id) === String(id));
 
-      if (!updatedItem) return;
+  if (!updatedItem) return;
 
-      const payload = {
-        ...updatedItem,
-        startDate: getLocalDateString(start),
-        endDate: type === 'event'
-          ? (end ? getLocalDateString(end) : getLocalDateString(start))
-          : undefined,
-        startTime: type === 'event'
-          ? (!allDay && start ? start.toTimeString().slice(0, 5) : '')
-          : (updatedItem.startTime || ''),
-        endTime: type === 'event'
-          ? (!allDay && end ? end.toTimeString().slice(0, 5) : '')
-          : '',
-        allDay: type === 'event' ? allDay : false,
-      };
+  const payload = {
+    ...updatedItem,
+    startDate: getLocalDateString(start),
+    endDate: type === 'event'
+      ? (end ? getLocalDateString(end) : getLocalDateString(start))
+      : undefined,
+    startTime: type === 'event'
+      ? (!allDay && start ? start.toTimeString().slice(0, 5) : '')
+      : (updatedItem.startTime || ''), // si tu tarea traía hora opcional, la conservamos
+    endTime: type === 'event'
+      ? (!allDay && end ? end.toTimeString().slice(0, 5) : '')
+      : '',
+    allDay: type === 'event' ? allDay : false,
+  };
 
-      // Optimistic UI
-      dispatch({ type: type === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK", payload });
+  // Optimistic UI
+  dispatch({
+    type: type === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK",
+    payload
+  });
 
-      if (type === 'event') {
-        try {
-          const body = toBackendEventBody(payload);
-          const data = await apiUpdateEvent(id, body);
-          const normalized = normalizeEventFromServer(data);
-          dispatch({ type: "UPDATE_EVENT", payload: normalized });
-        } catch (e) {
-          console.error("No se pudo guardar el movimiento del evento:", e);
-          alert(e?.message || "No se pudo guardar el evento");
-        }
+  // 🔽🔽🔽 NUEVO: persistencia para tareas 🔽🔽🔽
+  if (type === 'task') {
+    const userId = getUserId({ storeUser: store.user });
+    if (userId) {
+      // ISO para backend: si la tarea tenía hora, la usamos, si no, 00:00:00
+      const iso = payload.startTime
+        ? `${payload.startDate}T${payload.startTime}:00`
+        : `${payload.startDate}T00:00:00`;
+
+      try {
+        await apiUpdateUserTask(Number(userId), Number(id), { date: iso });
+      } catch (e) {
+        // Rollback si falla
+        dispatch({ type: "UPDATE_TASK", payload: updatedItem });
+        console.error("No se pudo guardar el cambio de día de la tarea:", e);
+        alert(e?.message || "No se pudo guardar la tarea");
       }
+    }
+  }
 
-      // reflejar visualmente en FullCalendar
-      info.event.setStart(payload.startDate);
-      info.event.setEnd(payload.endDate);
-    };
+  // Persistencia de eventos (ya la tenías)
+  if (type === 'event') {
+    try {
+      const body = toBackendEventBody(payload);
+      const data = await apiUpdateEvent(id, body);
+      const normalized = normalizeEventFromServer(data);
+      dispatch({ type: "UPDATE_EVENT", payload: normalized });
+    } catch (e) {
+      console.error("No se pudo guardar el movimiento del evento:", e);
+      alert(e?.message || "No se pudo guardar el evento");
+    }
+  }
+
+  // Reflejar en FullCalendar
+  info.event.setStart(payload.startDate);
+  info.event.setEnd(payload.endDate);
+};
+
 
     const handleEventResize = handleEventDrop; 
 
