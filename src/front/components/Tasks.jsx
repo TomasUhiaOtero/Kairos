@@ -42,7 +42,7 @@ export default function Tasks({ tasks }) {
             if (task.date) {
                 const taskDate = new Date(task.date);
 
-                if (taskDate < now && task.status === false) {
+                if (taskDate < now === false) {
                     result.atrasado.push(task);
                 } else {
                     const formattedDate = formatDate(taskDate);
