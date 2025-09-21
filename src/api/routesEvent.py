@@ -106,6 +106,18 @@ def _validate_ownership(calendar_id: Optional[int], user_id: int):
         from .utils import APIException
         raise APIException("El grupo no existe o no pertenece al usuario", 404)
 
+def _normalize_all_day(start_dt: datetime, end_dt: datetime, is_all_day: bool) -> tuple[datetime, datetime]:
+    """
+    Si es all-day y se envían solo fechas (00:00), extiende el fin al 23:59:59 del mismo día.
+    """
+    if not is_all_day:
+        return start_dt, end_dt
+
+    same_day = (start_dt.date() == end_dt.date())
+    if same_day:
+        end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=0)
+
+    return start_dt, end_dt
 
 # ---------- Endpoints ----------
 
@@ -178,9 +190,13 @@ def create_event(auth_payload):
     title = (data.get("title") or "").strip()
     if not title:
         raise APIException("El título es requerido", 400)
+    
+    all_day = bool(data.get("all_day") if "all_day" in data else data.get("allDay"))
+
 
     try:
         start_dt, end_dt = _get_datetimes(data)
+        start_dt, end_dt = _normalize_all_day(start_dt, end_dt, all_day)
     except ValueError as e:
         raise APIException(str(e), 400)
 
@@ -197,6 +213,7 @@ def create_event(auth_payload):
         title=title,
         start_date=start_dt,
         end_date=end_dt,
+        all_day=all_day,
         description=(data.get("description") or "").strip() or None,
         color=(data.get("color") or "").strip() or None,
     )
@@ -227,6 +244,12 @@ def update_event(auth_payload, event_id: int):
     ev = Event.query.filter_by(id=event_id, user_id=user_id).first()
     if not ev:
         raise APIException("Evento no encontrado", 404)
+    
+    all_day = ev.all_day
+    if "all_day" in data:
+        all_day = bool(data.get("all_day"))
+    elif "allDay" in data:
+        all_day = bool(data.get("allDay"))
 
     # Campos opcionales
     if "title" in data:
@@ -243,13 +266,18 @@ def update_event(auth_payload, event_id: int):
             if not start_raw or not end_raw:
                 raise APIException(
                     "Para actualizar el rango envía start y end", 400)
-            ev.start_date = _parse_iso_datetime(start_raw)
-            ev.end_date = _parse_iso_datetime(end_raw)
+            start_dt = _parse_iso_datetime(start_raw)
+            end_dt = _parse_iso_datetime(end_raw)
+            start_dt, end_dt = _normalize_all_day(start_dt, end_dt, all_day)
+            ev.start_date, ev.end_date = start_dt, end_dt
+
         elif any(k in data for k in ("date", "start_time", "end_time")):
             parts = _compose_datetimes_from_parts(data)
             if not parts:
                 raise APIException("Faltan date, start_time o end_time", 400)
-            ev.start_date, ev.end_date = parts
+            start_dt, end_dt = _normalize_all_day(parts[0], parts[1], all_day)
+            ev.start_date, ev.end_date = start_dt, end_dt
+
     except ValueError as e:
         raise APIException(str(e), 400)
 
@@ -268,6 +296,8 @@ def update_event(auth_payload, event_id: int):
         _validate_ownership(gid, user_id)
         ev.calendar_id = gid
 
+    ev.all_day = all_day
+    
     db.session.commit()
     return jsonify(ev.serialize()), 200
 

@@ -1,18 +1,25 @@
 import React, { useEffect } from "react";
 import Calendar from "../components/Calendar";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
-import { apiListUserTaskGroups, apiListCalendars, getUserId } from "../lib/api.js";
+import { apiListUserTaskGroups, apiListCalendars, apiListEvents, getUserId } from "../lib/api.js";
 
 
 export const Inicio = () => {
     const { store, dispatch } = useGlobalReducer();
 
-    useEffect(() => {//useEffect modificado por Max
+    useEffect(() => {
   const getData = async () => {
+    // Calendarios
     const listCalendar = await apiListCalendars();
+
+    // Eventos (⬅️ NUEVO)
+    const eventsRaw = await apiListEvents();
+    const events = Array.isArray(eventsRaw) ? eventsRaw.map(normalizeEventFromServer) : [];
+
+    // Enviar ambos en el mismo dispatch (⬅️ CLAVE: no dejes events como [])
     dispatch({
       type: "SET_CALENDARS",
-      payload: { calendars: listCalendar },
+      payload: { calendars: listCalendar, events },
     });
 
     // Obtener userId
@@ -23,16 +30,16 @@ export const Inicio = () => {
       return;
     }
 
+    // Grupos
     const listTaskGroup = await apiListUserTaskGroups(userId);
     dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: listTaskGroup, tasks: [] } });
 
-
+    // Tareas (igual que tenías)
     const base = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
     const token = localStorage.getItem("token");
     const headers = { Authorization: token ? `Bearer ${token}` : undefined, Accept: "application/json" };
     const resp = await fetch(`${base}/api/users/${userId}/tasks`, { headers });
     const tasks = resp.ok ? await resp.json() : [];
-    // Normaliza a lo que usa tu Calendar (startDate = YYYY-MM-DD, groupId, done)
     const normalizedTasks = tasks.map(t => ({
       id: t.id,
       type: "task",
@@ -45,7 +52,9 @@ export const Inicio = () => {
   };
 
   getData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
+
 
 
     const today = new Date();
@@ -116,6 +125,32 @@ export const Inicio = () => {
             </div>
         );
     };
+
+    // helper para partir ISO en fecha/hora (p.e. "2025-09-22T10:30:00")
+const parseISOToParts = (iso) => {
+  if (!iso) return { date: null, time: null };
+  const [d, t] = String(iso).split("T");
+  return { date: d || null, time: t ? t.slice(0, 5) : null };
+};
+
+const normalizeEventFromServer = (s) => {
+  const { date: sDate, time: sTime } = parseISOToParts(s.start_date);
+  const { date: eDate, time: eTime } = parseISOToParts(s.end_date);
+  return {
+    id: String(s.id),
+    type: "event",
+    title: s.title,
+    calendarId: s.calendar_id,
+    startDate: sDate || null,
+    endDate: eDate || sDate || null,
+    startTime: s.all_day ? "" : (sTime || ""),
+    endTime:   s.all_day ? "" : (eTime || ""),
+    allDay: !!s.all_day,
+    description: s.description || "",
+    color: s.color || "",
+  };
+};
+
 
     return (
         <div className="row h-100">

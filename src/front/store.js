@@ -34,12 +34,17 @@ export default function storeReducer(store, action = {}) {
         ),
       };
 
-    case "SET_CALENDARS":
-      return {
-        ...store,
-        calendar: action.payload.calendars || [],
-        events: action.payload.events || [],
-      };
+   
+case "SET_CALENDARS":
+  return {
+    ...store,
+    calendar: action.payload.calendars || [],
+    events:
+      action.payload.hasOwnProperty("events")
+        ? (action.payload.events || [])
+        : store.events, // ⬅️ mantiene eventos si no vienen en el payload
+  };
+
 
     // TASKGROUPS
     case "ADD_TASKGROUP":

@@ -6,7 +6,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import CreateEvent from './CreateEvent';
 import useGlobalReducer from '../hooks/useGlobalReducer.jsx';
-import { apiUpdateUserTask, apiDeleteUserTask, getUserId } from "../lib/api.js";
+import { apiUpdateUserTask, apiDeleteUserTask, apiCreateEvent, apiUpdateEvent, apiDeleteEvent, getUserId } from "../lib/api.js";
 const Calendar = () => {
     const { store, dispatch } = useGlobalReducer();
     const calendarRef = useRef(null);
@@ -33,17 +33,19 @@ const Calendar = () => {
         }
     };
 
+    // Pequeño ajuste para evitar undefined en colores
     const getCalendarsColors = () => {
         const obj = {};
         store.calendar.forEach(cal => {
             obj[cal.id] = {
-                background: cal.color + '30',
-                border: cal.color + '00',
-                text: cal.color,
+                background: (cal.color || '#94a3b8') + '30',
+                border: (cal.color || '#94a3b8') + '00',
+                text: cal.color || '#334155',
             };
         });
         return obj;
     };
+
 
     const getTaskGroupsColors = () => {
         const obj = {};
@@ -61,77 +63,123 @@ const Calendar = () => {
     const taskGroupsColors = getTaskGroupsColors();
 
     // --- CRUD --- (modificado max para actualixar al momento y no recargar la pajina)
-    const handleAddItem = (item) => {
-        if (!item.title?.trim()) return;
-        
-            const formattedItem = formatItemDates({
-            ...item,
-            id: item.id ? String(item.id) : (Date.now() + Math.random()).toString(),
-        });
-  
-        const isEvent = item.type === 'event';
-        const list = isEvent ? store.events : store.tasks;
-        const exists = list.some(x => String(x.id) === String(formattedItem.id));
-  
-        dispatch({
-            type: isEvent
-            ? (exists ? "UPDATE_EVENT" : "ADD_EVENT")
-            : (exists ? "UPDATE_TASK" : "ADD_TASK"),
-            payload: formattedItem
-        });
+    const handleAddItem = async (item) => {
+  if (!item.title?.trim()) return;
 
-        setPopover(null);
+  const isEvent = item.type === 'event';
+
+  // --- EVENTOS (persistencia real con optimistic UI) ---
+  if (isEvent) {
+    const isUpdate = !!item.id;
+
+    // ↪️ ACTUALIZAR
+    if (isUpdate) {
+      const optimistic = { ...item, id: String(item.id) };
+      // Optimistic
+      dispatch({ type: "UPDATE_EVENT", payload: optimistic });
+      try {
+        const body = toBackendEventBody(optimistic);
+        const data = await apiUpdateEvent(optimistic.id, body);
+        const normalized = normalizeEventFromServer(data);
+        dispatch({ type: "UPDATE_EVENT", payload: normalized });
+      } catch (e) {
+        // Rollback a lo que tenías antes
+        dispatch({ type: "UPDATE_EVENT", payload: item });
+        console.error("Error guardando evento:", e);
+        alert(e?.message || "No se pudo guardar el evento");
+      }
+      setPopover(null);
+      return;
+    }
+
+    // ↪️ CREAR
+    const tempId = (Date.now() + Math.random()).toString();
+    const optimistic = {
+      ...item,
+      id: tempId,
     };
 
+    // 1) Optimistic: lo mostramos ya
+    dispatch({ type: "ADD_EVENT", payload: optimistic });
+
+    try {
+      // 2) Llamada real
+      const body = toBackendEventBody(optimistic);
+      const data = await apiCreateEvent(body);
+      const normalized = normalizeEventFromServer(data);
+
+      // 3) Reemplazar el temporal por el real
+      dispatch({ type: "DELETE_EVENT", payload: tempId });
+      dispatch({ type: "ADD_EVENT", payload: normalized });
+    } catch (e) {
+      // 4) Rollback si falla
+      dispatch({ type: "DELETE_EVENT", payload: tempId });
+      console.error("Error guardando evento:", e);
+      alert(e?.message || "No se pudo guardar el evento");
+    }
+
+    setPopover(null);
+    return;
+  }
+
+  // --- TAREAS (igual que ya tenías) ---
+  const formattedItem = {
+    ...item,
+    id: item.id ? String(item.id) : (Date.now() + Math.random()).toString(),
+  };
+  const exists = store.tasks.some(x => String(x.id) === String(formattedItem.id));
+  dispatch({ type: exists ? "UPDATE_TASK" : "ADD_TASK", payload: formattedItem });
+  setPopover(null);
+};
 
 
+
+
+
+    // MODIFICADO: borrar EVENTO con API + rollback
     const handleDeleteItem = async (itemId, itemType) => {
-        if (!itemId) return;
-        
-        if (itemType === "event") {
-            // Si tienes API de eventos, úsala aquí; por ahora solo UI:
-            dispatch({ type: "DELETE_EVENT", payload: itemId });
-            setPopover(null);
-            return;
-        }
-    
-        // --- TAREA: borrar SOLO la tarea ---
-        const userId = getUserId({ storeUser: store.user });
-        if (!userId) {
-            alert("No se pudo identificar al usuario.");
-            return;
-        }
-    
-        // Guardar para rollback
-        const taskToDelete = store.tasks.find(t => String(t.id) === String(itemId));
-        if (!taskToDelete) {
-            // Si no está en el store, intenta borrar en backend igualmente
-            try {
-                await apiDeleteUserTask(Number(userId), Number(itemId));
-            } catch (e) {
-                console.error("Error borrando tarea:", e);
-                alert(e?.message || "No se pudo borrar la tarea");
-            }
-            setPopover(null);
-            return;
-        }
-    
-        // Optimistic UI
-        dispatch({ type: "DELETE_TASK", payload: itemId });
+      if (!itemId) return;
+
+      if (itemType === "event") {
+        const prev = store.events.find(e => String(e.id) === String(itemId));
+
+        // Optimistic
+        dispatch({ type: "DELETE_EVENT", payload: itemId });
         setPopover(null);
-    
+
         try {
-            await apiDeleteUserTask(Number(userId), Number(itemId));
+          await apiDeleteEvent(Number(itemId));
         } catch (e) {
-            // Rollback
-            dispatch({ type: "ADD_TASK", payload: taskToDelete });
-            console.error("Error borrando tarea:", e);
-            alert(e?.message || "No se pudo borrar la tarea");
+          // Rollback
+          if (prev) dispatch({ type: "ADD_EVENT", payload: prev });
+          console.error("Error borrando evento:", e);
+          alert(e?.message || "No se pudo borrar el evento");
         }
+        return;
+      }
+
+      // --- TAREA (tu flujo actual)
+      const userId = getUserId({ storeUser: store.user });
+      if (!userId) {
+        alert("No se pudo identificar al usuario.");
+        return;
+      }
+
+      const taskToDelete = store.tasks.find(t => String(t.id) === String(itemId));
+
+      dispatch({ type: "DELETE_TASK", payload: itemId });
+      setPopover(null);
+
+      try {
+        await apiDeleteUserTask(Number(userId), Number(itemId));
+      } catch (e) {
+        if (taskToDelete) dispatch({ type: "ADD_TASK", payload: taskToDelete });
+        console.error("Error borrando tarea:", e);
+        alert(e?.message || "No se pudo borrar la tarea");
+      }
     };
 
-
-
+    
 
 
     const toggleTaskDone = async (taskId) => {
@@ -165,40 +213,123 @@ const Calendar = () => {
         }
     };
 
-
-
-    // --- Drag & Resize ---
-    const handleEventDrop = (info) => {
-        const { id, start, end, allDay } = info.event;
-        const type = info.event.extendedProps.type;
-
-        const updatedItem = type === 'event'
-            ? store.events.find(e => e.id === id)
-            : store.tasks.find(t => t.id === id);
-
-        if (!updatedItem) return;
-
-        const payload = {
-            ...updatedItem,
-            startDate: getLocalDateString(start),
-            endDate: type === 'event' ? (end ? getLocalDateString(end) : getLocalDateString(start)) : undefined,
-            startTime: type === 'event' ? (!allDay && start ? start.toTimeString().slice(0, 5) : '') : (updatedItem.startTime || ''),
-            endTime: type === 'event' ? (!allDay && end ? end.toTimeString().slice(0, 5) : '') : '',
-            allDay: type === 'event' ? allDay : false,
-        };
-
-
-        dispatch({
-            type: type === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK",
-            payload
-        });
-
-        // Forzamos rerender en FullCalendar
-        info.event.setStart(payload.startDate);
-        info.event.setEnd(payload.endDate);
+    // NUEVO: partir ISO en fecha/hora
+    const parseISOToParts = (iso) => {
+      if (!iso) return { date: null, time: null };
+      const [d, t] = String(iso).split('T');
+      return { date: d, time: t ? t.slice(0, 5) : null };
     };
 
-    const handleEventResize = handleEventDrop;
+    // NUEVO: construir body para el backend de eventos
+    // Reemplaza tu toBackendEventBody por este:
+const toBackendEventBody = (evt) => {
+  const allDay = !!evt.allDay;
+
+  // Separar fecha y hora si startDate/endDate ya venían con "T..."
+  const s = parseISOToParts(evt.startDate);
+  const e = parseISOToParts(evt.endDate || evt.startDate);
+
+  const startDate = s.date;                 // "YYYY-MM-DD"
+  const endDate   = e.date;                 // "YYYY-MM-DD" (fallback al start)
+
+  // Si es allDay no enviamos hora. Si no, prioridad:
+  // 1) hora explícita del form (startTime/endTime)
+  // 2) hora que ya venía embebida en startDate/endDate
+  // 3) fallback "00:00" (y para end, fallback a startTime)
+  const startTime = allDay ? '' : (evt.startTime || s.time || '00:00');
+  const endTime   = allDay ? '' : (evt.endTime   || e.time || startTime || '00:00');
+
+  const startIso = startTime ? `${startDate}T${startTime}` : startDate;
+  const endIso   = endTime   ? `${endDate}T${endTime}`     : endDate;
+
+  const calendarIdNum = Number(evt.calendarId || defaultCalendarId);
+  const cal = store.calendar.find(c => Number(c.id) === calendarIdNum);
+  const safeColor = (evt.color ?? cal?.color ?? "");
+
+  return {
+    title: evt.title?.trim(),
+    calendar_id: calendarIdNum,
+    start_date: startIso,
+    end_date: endIso,
+    all_day: allDay,
+    description: (evt.description ?? ""), // nunca null
+    color: (safeColor ?? ""),             // nunca null
+  };
+};
+
+
+    // NUEVO: normalizar respuesta del backend -> shape del store
+    const normalizeEventFromServer = (server) => {
+      const s = String(server.start_date || "");
+      const e = String(server.end_date || "");
+      const { date: sDate, time: sTime } = parseISOToParts(s);
+      const { date: eDate, time: eTime } = parseISOToParts(e);
+
+      return {
+        id: String(server.id),
+        type: "event",
+        title: server.title,
+        calendarId: server.calendar_id,
+        startDate: sDate || null,
+        endDate: eDate || sDate || null,
+        startTime: server.all_day ? "" : (sTime || ""),
+        endTime:   server.all_day ? "" : (eTime || ""),
+        allDay: !!server.all_day,
+        description: server.description || "",
+        color: server.color || "",
+      };
+    };
+
+    
+    // --- Drag & Resize ---
+    // MODIFICADO: al mover/redimensionar EVENTO, persiste en backend
+    const handleEventDrop = async (info) => {
+      const { id, start, end, allDay } = info.event;
+      const type = info.event.extendedProps.type;
+
+      const updatedItem = type === 'event'
+        ? store.events.find(e => String(e.id) === String(id))
+        : store.tasks.find(t => String(t.id) === String(id));
+
+      if (!updatedItem) return;
+
+      const payload = {
+        ...updatedItem,
+        startDate: getLocalDateString(start),
+        endDate: type === 'event'
+          ? (end ? getLocalDateString(end) : getLocalDateString(start))
+          : undefined,
+        startTime: type === 'event'
+          ? (!allDay && start ? start.toTimeString().slice(0, 5) : '')
+          : (updatedItem.startTime || ''),
+        endTime: type === 'event'
+          ? (!allDay && end ? end.toTimeString().slice(0, 5) : '')
+          : '',
+        allDay: type === 'event' ? allDay : false,
+      };
+
+      // Optimistic UI
+      dispatch({ type: type === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK", payload });
+
+      if (type === 'event') {
+        try {
+          const body = toBackendEventBody(payload);
+          const data = await apiUpdateEvent(id, body);
+          const normalized = normalizeEventFromServer(data);
+          dispatch({ type: "UPDATE_EVENT", payload: normalized });
+        } catch (e) {
+          console.error("No se pudo guardar el movimiento del evento:", e);
+          alert(e?.message || "No se pudo guardar el evento");
+        }
+      }
+
+      // reflejar visualmente en FullCalendar
+      info.event.setStart(payload.startDate);
+      info.event.setEnd(payload.endDate);
+    };
+
+    const handleEventResize = handleEventDrop; 
+
 
     // --- Popover ---
     const handleDateClick = (arg) => {
