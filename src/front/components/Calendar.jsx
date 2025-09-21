@@ -6,7 +6,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import CreateEvent from './CreateEvent';
 import useGlobalReducer from '../hooks/useGlobalReducer.jsx';
-
+import { apiUpdateUserTask, apiDeleteUserTask, getUserId } from "../lib/api.js";
 const Calendar = () => {
     const { store, dispatch } = useGlobalReducer();
     const calendarRef = useRef(null);
@@ -60,45 +60,112 @@ const Calendar = () => {
     const calendarsColors = getCalendarsColors();
     const taskGroupsColors = getTaskGroupsColors();
 
-    // --- CRUD ---
+    // --- CRUD --- (modificado max para actualixar al momento y no recargar la pajina)
     const handleAddItem = (item) => {
         if (!item.title?.trim()) return;
-
-        const formattedItem = formatItemDates({
+        
+            const formattedItem = formatItemDates({
             ...item,
-            id: (item.id || (Date.now() + Math.random())).toString(),
+            id: item.id ? String(item.id) : (Date.now() + Math.random()).toString(),
+        });
+  
+        const isEvent = item.type === 'event';
+        const list = isEvent ? store.events : store.tasks;
+        const exists = list.some(x => String(x.id) === String(formattedItem.id));
+  
+        dispatch({
+            type: isEvent
+            ? (exists ? "UPDATE_EVENT" : "ADD_EVENT")
+            : (exists ? "UPDATE_TASK" : "ADD_TASK"),
+            payload: formattedItem
         });
 
-        if (item.type === 'event') {
-            dispatch({
-                type: item.id ? "UPDATE_EVENT" : "ADD_EVENT",
-                payload: formattedItem
-            });
-        } else if (item.type === 'task') {
-            dispatch({
-                type: item.id ? "UPDATE_TASK" : "ADD_TASK",
-                payload: formattedItem
-            });
+        setPopover(null);
+    };
+
+
+
+    const handleDeleteItem = async (itemId, itemType) => {
+        if (!itemId) return;
+        
+        if (itemType === "event") {
+            // Si tienes API de eventos, úsala aquí; por ahora solo UI:
+            dispatch({ type: "DELETE_EVENT", payload: itemId });
+            setPopover(null);
+            return;
+        }
+    
+        // --- TAREA: borrar SOLO la tarea ---
+        const userId = getUserId({ storeUser: store.user });
+        if (!userId) {
+            alert("No se pudo identificar al usuario.");
+            return;
+        }
+    
+        // Guardar para rollback
+        const taskToDelete = store.tasks.find(t => String(t.id) === String(itemId));
+        if (!taskToDelete) {
+            // Si no está en el store, intenta borrar en backend igualmente
+            try {
+                await apiDeleteUserTask(Number(userId), Number(itemId));
+            } catch (e) {
+                console.error("Error borrando tarea:", e);
+                alert(e?.message || "No se pudo borrar la tarea");
+            }
+            setPopover(null);
+            return;
+        }
+    
+        // Optimistic UI
+        dispatch({ type: "DELETE_TASK", payload: itemId });
+        setPopover(null);
+    
+        try {
+            await apiDeleteUserTask(Number(userId), Number(itemId));
+        } catch (e) {
+            // Rollback
+            dispatch({ type: "ADD_TASK", payload: taskToDelete });
+            console.error("Error borrando tarea:", e);
+            alert(e?.message || "No se pudo borrar la tarea");
+        }
+    };
+
+
+
+
+
+    const toggleTaskDone = async (taskId) => {
+        const existingTask = store.tasks.find(t => String(t.id) === String(taskId));
+        if (!existingTask) return;
+
+        const userId = getUserId({ storeUser: store.user });
+        if (!userId) {
+            alert("No se pudo identificar al usuario.");
+            return;
         }
 
-        setPopover(null);
-    };
+        const newDone = !existingTask.done;
 
-    const handleDeleteItem = (itemId, itemType) => {
-        if (!itemId) return;
-        dispatch({ type: itemType === 'event' ? "DELETE_EVENT" : "DELETE_TASK", payload: itemId });
-        setPopover(null);
-    };
+        // Optimistic update
+        dispatch({
+            type: "UPDATE_TASK",
+            payload: { ...existingTask, done: newDone }
+        });
 
-    const toggleTaskDone = (taskId) => {
-        const existingTask = store.tasks.find(t => t.id === taskid);
-        if (existingTask) {
+        try {
+            await apiUpdateUserTask(userId, Number(taskId), { status: newDone });
+        } catch (e) {
+            // Rollback si falla
             dispatch({
                 type: "UPDATE_TASK",
-                payload: { ...existingTask, done: !existingTask.done }
+                payload: { ...existingTask, done: !newDone }
             });
+            console.error("No se pudo guardar el cambio de estado:", e);
+            alert(e?.message || "No se pudo guardar el estado de la tarea");
         }
     };
+
+
 
     // --- Drag & Resize ---
     const handleEventDrop = (info) => {

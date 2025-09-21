@@ -1,28 +1,52 @@
 import React, { useEffect } from "react";
 import Calendar from "../components/Calendar";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
-import { apiListTaskGroups, apiListCalendars } from "../lib/api.js"
+import { apiListUserTaskGroups, apiListCalendars, getUserId } from "../lib/api.js";
+
 
 export const Inicio = () => {
     const { store, dispatch } = useGlobalReducer();
 
-    useEffect(() => {
-        const getData = async () => {
-            const listTaskGroup = await apiListTaskGroups()
-            const listCalendar = await apiListCalendars()
-            dispatch({
-                type: "SET_CALENDARS",
-                payload: { calendars: listCalendar },
-            });
-            dispatch({
-                type: "SET_TASKGROUPS",
-                payload: { taskgroup: listTaskGroup },
-            });
-            console.log(listTaskGroup)
-        }
-        getData()
+    useEffect(() => {//useEffect modificado por Max
+  const getData = async () => {
+    const listCalendar = await apiListCalendars();
+    dispatch({
+      type: "SET_CALENDARS",
+      payload: { calendars: listCalendar },
+    });
 
-    }, [])
+    // Obtener userId
+    const userId = getUserId({ storeUser: store.user });
+    if (!userId) {
+      console.warn("No hay userId: no se cargarán grupos/tareas del usuario.");
+      dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: [], tasks: [] } });
+      return;
+    }
+
+    const listTaskGroup = await apiListUserTaskGroups(userId);
+    dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: listTaskGroup, tasks: [] } });
+
+
+    const base = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
+    const token = localStorage.getItem("token");
+    const headers = { Authorization: token ? `Bearer ${token}` : undefined, Accept: "application/json" };
+    const resp = await fetch(`${base}/api/users/${userId}/tasks`, { headers });
+    const tasks = resp.ok ? await resp.json() : [];
+    // Normaliza a lo que usa tu Calendar (startDate = YYYY-MM-DD, groupId, done)
+    const normalizedTasks = tasks.map(t => ({
+      id: t.id,
+      type: "task",
+      title: t.title,
+      groupId: t.task_group_id,
+      done: !!t.status,
+      startDate: t.date ? String(t.date).slice(0, 10) : null,
+    }));
+    dispatch({ type: "SET_TASKS", payload: normalizedTasks });
+  };
+
+  getData();
+}, []);
+
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);

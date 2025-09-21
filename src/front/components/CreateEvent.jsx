@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import { apiCreateTaskInGroup, getUserId } from "../lib/api.js";
+
 
 // Función para obtener YYYY-MM-DD sin modificar la fecha
 const formatDateLocal = (date) => {
@@ -92,7 +94,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
     const handleDelete = () => {
         if (!item?.id) return;
-        if (onDeleteItem) onDeleteItem(item.id);
+        if (onDeleteItem) onDeleteItem(item.id, item.type, item.groupId);
         if (onClose) onClose();
     };
 
@@ -114,20 +116,47 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
             };
             onAddItem(newEvent);
         } else {
-            const newTask = {
-                ...item,
-                type: "task",
-                title: taskTitle,
-                groupId: taskGroup,
-                repeat: taskRepeat,
-                frequencyNum: taskFrequencyNum,
-                frequencyUnit: taskFrequencyUnit,
-                startDate: startDate ? formatISODate(startDate, startTime || "") : null,
-                startTime: startTime || "",
-                allDay,
+          (async () => {
+            const userId = getUserId({ storeUser: store.user });
+            if (!userId) { alert("No se pudo identificar al usuario."); return; }
+            if (!taskTitle?.trim()) return;
+            if (!taskGroup) { alert("Selecciona un grupo de tareas."); return; }
+        
+            // Normaliza groupId y toma un color seguro (NOT NULL)
+            const groupIdNum = Number(taskGroup);
+            const group = store.taskGroup.find(g => Number(g.id) === groupIdNum);
+            const safeColor = (group?.color && String(group.color).trim()) || "#000000"; // fallback
+        
+            // Fecha a medianoche para "solo día"
+            const dateISO = startDate ? `${startDate}T00:00:00` : null;
+        
+            const payload = {
+              title: taskTitle.trim(),
+              status: false,
+              date: dateISO,
+              color: safeColor,          // <-- clave del fix: nunca null
+              // NO enviamos 'recurrencia' hasta confirmar el tipo en DB
             };
-            onAddItem(newTask);
+        
+            try {
+              const created = await apiCreateTaskInGroup(userId, groupIdNum, payload);
+              const normalized = {
+                id: String(created.id),// <--- fuerza string
+                type: "task",
+                title: created.title,
+                groupId: created.task_group_id ?? groupIdNum,
+                done: !!created.status,
+                startDate: created.date ? String(created.date).slice(0, 10) : null,
+              };
+              onAddItem(normalized);
+            } catch (err) {
+              console.error("Error creando tarea:", err);
+              alert(err?.message || "Error creando la tarea");
+              return;
+            }
+          })();
         }
+
         if (onClose) onClose();
     };
 

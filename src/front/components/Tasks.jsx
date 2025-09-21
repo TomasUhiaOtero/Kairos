@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import TasksSection from "./TasksSection";
 import TaskItem from "./TaskItem";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import { apiUpdateUserTask, apiDeleteUserTask, getUserId } from "../lib/api.js";
 
 
 export default function Tasks({ tasks }) {
@@ -62,19 +63,65 @@ export default function Tasks({ tasks }) {
     }, [tasks]);
 
     // Acciones conectadas al store
-    const updateTask = (taskId, updateData) => {
+    const updateTask = async (taskId, updateData) => {
+      const prev = store.tasks.find(t => String(t.id) === String(taskId));
+      if (!prev) return;
+
+      const userId = getUserId({ storeUser: store.user });
+      if (!userId) {
+        alert("No se pudo identificar al usuario.");
+        return;
+      }
+
+      // Mapeo front -> backend (done -> status)
+      const body = {};
+      if (updateData.title !== undefined) body.title = updateData.title;
+      if (updateData.done !== undefined) body.status = !!updateData.done;
+
+      // Optimistic update
+      dispatch({
+        type: "UPDATE_TASK",
+        payload: { ...prev, ...updateData }
+      });
+
+      try {
+        await apiUpdateUserTask(userId, Number(taskId), body);
+      } catch (e) {
+        // Rollback si falla
         dispatch({
-            type: "UPDATE_TASK",
-            payload: { id: taskId, ...updateData },
+          type: "UPDATE_TASK",
+          payload: prev
         });
+        console.error("No se pudo guardar el cambio de tarea:", e);
+        alert(e?.message || "No se pudo guardar la tarea");
+      }
     };
 
-    const deleteTask = (taskId) => {
-        dispatch({
-            type: "DELETE_TASK",
-            payload: taskId,
-        });
+    const deleteTask = async (taskId) => {
+        const userId = getUserId({ storeUser: store.user });
+        if (!userId) {
+            alert("No se pudo identificar al usuario.");
+            return;
+        }
+    
+        const taskToDelete = store.tasks.find(t => String(t.id) === String(taskId));
+        if (!taskToDelete) return;
+    
+        // Optimistic
+        dispatch({ type: "DELETE_TASK", payload: taskId });
+    
+        try {
+            await apiDeleteUserTask(Number(userId), Number(taskId));
+        } catch (e) {
+            // Rollback
+            dispatch({ type: "ADD_TASK", payload: taskToDelete });
+            console.error("Error borrando tarea:", e);
+            alert(e?.message || "No se pudo borrar la tarea");
+        }
     };
+
+
+
 
     // Filtros
     const toggleFilter = (filterType) => {
