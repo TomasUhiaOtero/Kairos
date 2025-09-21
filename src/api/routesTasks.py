@@ -1,6 +1,6 @@
 import os
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import db, User, Task
+from api.models import db, User, Task, TaskGroup
 from datetime import datetime
 from .routes import api
 
@@ -84,7 +84,7 @@ def update_task(user_id, task_id):
 
 @api.route("/users/<int:user_id>/groups", methods=["GET"])
 def get_user_groups(user_id):
-    groups = Group.query.filter_by(user_id=user_id).all()
+    groups = TaskGroup.query.filter_by(user_id=user_id).all()
     return jsonify([g.serialize_with_tasks() for g in groups]), 200
 
 
@@ -95,7 +95,7 @@ def create_group(user_id):
     if "title" not in data:
         return jsonify({"error": "Falta el campo 'title'"}), 400
 
-    new_group = Group(
+    new_group = TaskGroup(
         user_id=user_id,
         title=data["title"],
         color=data.get("color")
@@ -103,13 +103,13 @@ def create_group(user_id):
 
     db.session.add(new_group)
     db.session.commit()
-    return jsonify(new_group.serialize()), 201
+    return jsonify(new_group.serialize_with_tasks()), 201
 
 
 # Obtener un grupo específico con sus tareas
-@api.route("/users/<int:user_id>/groups/<int:group_id>", methods=["GET"])
-def get_group(user_id, group_id):
-    group = Group.query.filter_by(id=group_id, user_id=user_id).first()
+@api.route("/users/<int:user_id>/groups/<int:task_group_id>", methods=["GET"])
+def get_group(user_id, task_group_id):
+    group = TaskGroup.query.filter_by(id=task_group_id, user_id=user_id).first()
     if not group:
         return jsonify({"error": "Grupo no encontrado"}), 404
 
@@ -117,9 +117,9 @@ def get_group(user_id, group_id):
 
 
 # Crear una nueva tarea dentro de un grupo
-@api.route("/users/<int:user_id>/groups/<int:group_id>/tasks", methods=["POST"])
-def create_task_in_group(user_id, group_id):
-    group = Group.query.filter_by(id=group_id, user_id=user_id).first()
+@api.route("/users/<int:user_id>/groups/<int:task_group_id>/tasks", methods=["POST"])
+def create_task_in_group(user_id, task_group_id):
+    group = TaskGroup.query.filter_by(id=task_group_id, user_id=user_id).first()
     if not group:
         return jsonify({"error": "Grupo no encontrado"}), 404
 
@@ -139,7 +139,7 @@ def create_task_in_group(user_id, group_id):
         date=task_date,
         recurrencia=data.get("recurrencia"),
         color=data.get("color"),
-        group_id=group.id
+        task_group_id=group.id
     )
 
     db.session.add(new_task)
@@ -149,9 +149,9 @@ def create_task_in_group(user_id, group_id):
 # Actualizar un grupo, editar título y color
 
 
-@api.route("/users/<int:user_id>/groups/<int:group_id>", methods=["PUT"])
-def update_group(user_id, group_id):
-    group = Group.query.filter_by(id=group_id, user_id=user_id).first()
+@api.route("/users/<int:user_id>/groups/<int:task_group_id>", methods=["PUT"])
+def update_group(user_id, task_group_id):
+    group = TaskGroup.query.filter_by(id=task_group_id, user_id=user_id).first()
     if not group:
         return jsonify({"error": "Grupo no encontrado"}), 404
 
@@ -165,9 +165,9 @@ def update_group(user_id, group_id):
 
 
 # Eliminar un grupo y sus tasks/events por cascade
-@api.route("/users/<int:user_id>/groups/<int:group_id>", methods=["DELETE"])
-def delete_group(user_id, group_id):
-    group = Group.query.filter_by(id=group_id, user_id=user_id).first()
+@api.route("/users/<int:user_id>/groups/<int:task_group_id>", methods=["DELETE"])
+def delete_group(user_id, task_group_id):
+    group = TaskGroup.query.filter_by(id=task_group_id, user_id=user_id).first()
     if not group:
         return jsonify({"error": "Grupo no encontrado"}), 404
 
@@ -177,11 +177,11 @@ def delete_group(user_id, group_id):
 
 
 # Actualizar una tarea dentro de un grupo
-@api.route("/users/<int:user_id>/groups/<int:group_id>/tasks/<int:task_id>", methods=["PUT"])
-def update_task_in_group(user_id, group_id, task_id):
-    # Buscar la tarea por user_id, group_id y task_id
+@api.route("/users/<int:user_id>/groups/<int:task_group_id>/tasks/<int:task_id>", methods=["PUT"])
+def update_task_in_group(user_id, task_group_id, task_id):
+    # Buscar la tarea por user_id, task_group_id y task_id
     task = Task.query.filter_by(
-        id=task_id, user_id=user_id, group_id=group_id).first()
+        id=task_id, user_id=user_id, task_group_id=task_group_id).first()
     if not task:
         return jsonify({"error": "Tarea no encontrada"}), 404
 
@@ -208,11 +208,11 @@ def update_task_in_group(user_id, group_id, task_id):
 # Eliminar una tarea dentro de un grupo
 
 
-@api.route("/users/<int:user_id>/groups/<int:group_id>/tasks/<int:task_id>", methods=["DELETE"])
-def delete_task_in_group(user_id, group_id, task_id):
-    # Buscar la tarea por user_id, group_id y task_id
+@api.route("/users/<int:user_id>/groups/<int:task_group_id>/tasks/<int:task_id>", methods=["DELETE"])
+def delete_task_in_group(user_id, task_group_id, task_id):
+    # Buscar la tarea por user_id, task_group_id y task_id
     task = Task.query.filter_by(
-        id=task_id, user_id=user_id, group_id=group_id).first()
+        id=task_id, user_id=user_id, task_group_id=task_group_id).first()
     if not task:
         return jsonify({"error": "Tarea no encontrada"}), 404
 
@@ -222,5 +222,5 @@ def delete_task_in_group(user_id, group_id, task_id):
     return jsonify({
         "msg": "Tarea eliminada correctamente",
         "task_id": task_id,
-        "group_id": group_id
+        "task_group_id": task_group_id
     }), 200
