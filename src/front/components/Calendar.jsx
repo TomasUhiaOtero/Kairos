@@ -13,9 +13,9 @@ const Calendar = () => {
     const [popover, setPopover] = useState(null);
     const [title, setTitle] = useState('');
 
-    const defaultCalendarId = store.calendar[0]?.id?.toString() || 'default-calendar';
+    const defaultCalendarId = store.calendar[0]?.id || null;
 
-    
+
     // --- Utilidades ---
     const getLocalDateString = (date) => {
         const d = new Date(date);
@@ -91,7 +91,7 @@ const Calendar = () => {
     };
 
     const toggleTaskDone = (taskId) => {
-        const existingTask = store.tasks.find(t => t.id.toString() === taskId.toString());
+        const existingTask = store.tasks.find(t => t.id === taskid);
         if (existingTask) {
             dispatch({
                 type: "UPDATE_TASK",
@@ -106,19 +106,19 @@ const Calendar = () => {
         const type = info.event.extendedProps.type;
 
         const updatedItem = type === 'event'
-            ? store.events.find(e => e.id.toString() === id.toString())
-            : store.tasks.find(t => t.id.toString() === id.toString());
+            ? store.events.find(e => e.id === id)
+            : store.tasks.find(t => t.id === id);
 
         if (!updatedItem) return;
 
         const payload = {
-    ...updatedItem,
-    startDate: getLocalDateString(start),
-    endDate: type === 'event' ? (end ? getLocalDateString(end) : getLocalDateString(start)) : undefined,
-    startTime: type === 'event' ? (!allDay && start ? start.toTimeString().slice(0, 5) : '') : (updatedItem.startTime || ''),
-    endTime: type === 'event' ? (!allDay && end ? end.toTimeString().slice(0, 5) : '') : '',
-    allDay: type === 'event' ? allDay : false,
-};
+            ...updatedItem,
+            startDate: getLocalDateString(start),
+            endDate: type === 'event' ? (end ? getLocalDateString(end) : getLocalDateString(start)) : undefined,
+            startTime: type === 'event' ? (!allDay && start ? start.toTimeString().slice(0, 5) : '') : (updatedItem.startTime || ''),
+            endTime: type === 'event' ? (!allDay && end ? end.toTimeString().slice(0, 5) : '') : '',
+            allDay: type === 'event' ? allDay : false,
+        };
 
 
         dispatch({
@@ -155,29 +155,37 @@ const Calendar = () => {
         });
     };
 
-const handleEventClick = (clickInfo) => {
-    const { id, type } = clickInfo.event.extendedProps;
+    const handleEventClick = (clickInfo) => {
+        const { id, type } = clickInfo.event.extendedProps;
 
-    const updatedItem = type === 'event'
-        ? store.events.find(e => e.id.toString() === id.toString())
-        : store.tasks.find(t => t.id.toString() === id.toString());
+        const updatedItem = type === 'event'
+            ? store.events.find(e => e.id === id)
+            : store.tasks.find(t => t.id === id);
 
-    if (!updatedItem) return;
+        if (!updatedItem) return;
 
-    if (type === 'event') {
-        const rect = clickInfo.jsEvent.target.getBoundingClientRect();
-        let popoverWidth = 300, popoverHeight = 400;
-        let x = rect.left + rect.width / 2 - popoverWidth / 2;
-        let y = rect.top - popoverHeight - 10;
-        if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
-        if (x < 0) x = 10;
-        if (y < 0) y = rect.bottom + 10;
+        if (type === 'event') {
+            const rect = clickInfo.jsEvent.target.getBoundingClientRect();
+            let popoverWidth = 300, popoverHeight = 400;
+            let x = rect.left + rect.width / 2 - popoverWidth / 2;
+            let y = rect.top - popoverHeight - 10;
+            if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
+            if (x < 0) x = 10;
+            if (y < 0) y = rect.bottom + 10;
 
-        setPopover({ x, y, item: { ...updatedItem, calendarId: updatedItem.calendarId || defaultCalendarId } });
-    } else if (type === 'task' && typeof onEditTask === 'function') {
-        onEditTask(updatedItem); // abrimos TaskForm inline
-    }
-};
+            setPopover({ x, y, item: { ...updatedItem, calendarId: updatedItem.calendarId || defaultCalendarId } });
+        } else if (type === 'task') {
+            const rect = clickInfo.jsEvent.target.getBoundingClientRect();
+            let popoverWidth = 300, popoverHeight = 400;
+            let x = rect.left + rect.width / 2 - popoverWidth / 2;
+            let y = rect.top - popoverHeight - 10;
+            if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
+            if (x < 0) x = 10;
+            if (y < 0) y = rect.bottom + 10;
+
+            setPopover({ x, y, item: updatedItem });
+        }
+    };
 
     useEffect(() => {
         const closePopover = (e) => {
@@ -269,7 +277,7 @@ const handleEventClick = (clickInfo) => {
                         ? calendarsColors[calendarId] || { background: '#f3f4f6', border: '#6b7280', text: '#374151' }
                         : taskGroupsColors[groupId] || { background: '#f3f4f6', border: '#6b7280', text: '#374151' };
                     return {
-                        id: item.id.toString(),
+                        id: item.id,
                         start,
                         end,
                         title: item.title,

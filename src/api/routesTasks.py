@@ -87,7 +87,6 @@ def get_user_groups(user_id):
     groups = TaskGroup.query.filter_by(user_id=user_id).all()
     return jsonify([g.serialize_with_tasks() for g in groups]), 200
 
-
 # Crear un nuevo grupo para un usuario
 @api.route("/users/<int:user_id>/groups", methods=["POST"])
 def create_group(user_id):

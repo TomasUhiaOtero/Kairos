@@ -285,6 +285,8 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                         >
                             {isEdit ? "Actualizar" : "Guardar"}
                         </button>
+                        {isEdit && <button className="btn btn-danger" onClick={handleDelete}>Eliminar</button>}
+
                     </div>
                 </form>
             )}
