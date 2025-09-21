@@ -1,100 +1,26 @@
-import { useState, useEffect } from 'react';
-import TasksSection from './TasksSection';
-import TaskItem from './TaskItem';
+import { useState, useMemo } from "react";
+import TasksSection from "./TasksSection";
+import TaskItem from "./TaskItem";
+import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
 
+export default function Tasks({ tasks }) {
+    const { dispatch } = useGlobalReducer();
 
-export default function Tasks() {
-    const backend = import.meta.env.VITE_BACKEND_URL;
-    // Estado para las tareas obtenidas de la API
-    const [tasks, setTasks] = useState({
-        atrasado: [],
-        conFecha: {},
-        sinFecha: [],
-    });
-
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    // ID del usuario 
-    const userId = 1; // Cambiar por ID real del usuario
-
-    // Variable de estado que controla si es visible o no*/ 
+    // Estado para los filtros
     const [showFilterPopup, setShowFilterPopup] = useState(false);
-    // Variable de estaddo que controla si estan marcados los checkbox
     const [activeFilters, setActiveFilters] = useState({
         atrasado: true,
         conFecha: true,
         sinFecha: true
     });
 
-    // Función para obtener tareas de la API
-    const fetchTasks = async () => {
-        try {
-            console.log(backend)
-            setLoading(true);
-            const response = await fetch(`${backend}/api/users/${userId}/tasks`);
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status}`);
-            }
-
-            const apiTasks = await response.json();
-            // Procesar y categorizar las tareas
-            const processedTasks = processTasks(apiTasks);
-            setTasks(processedTasks)
-
-        } catch (err) {
-            console.error('Error al obtener tareas:', err);
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Función para procesar y categorizar las tareas
-    const processTasks = (apiTasks) => {
-        const now = new Date();
-        const categorizedTasks = {
-            atrasado: [],
-            conFecha: {},
-            sinFecha: [],
-        };
-
-        apiTasks.forEach(task => {
-            const processedTask = {
-                id: task.id,
-                text: task.title,
-                color: task.color || "text-gray-600",
-                repeat: task.recurrencia > 0,
-                status: task.status,
-                date: task.date
-            };
-
-            if (task.date) {
-                const taskDate = new Date(task.date);
-
-                if (taskDate < now && task.status === false) {
-                    categorizedTasks.atrasado.push(processedTask);
-                } else {
-                    const formattedDate = formatDate(taskDate);
-                    if (!categorizedTasks.conFecha[formattedDate]) {
-                        categorizedTasks.conFecha[formattedDate] = [];
-                    }
-                    categorizedTasks.conFecha[formattedDate].push(processedTask);
-                }
-            } else {
-                categorizedTasks.sinFecha.push(processedTask);
-            }
-        });
-
-        return categorizedTasks;
-    };
-
     // Función para formatear fecha
     const formatDate = (date) => {
-        const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-        const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+        const meses = [
+            "enero", "febrero", "marzo", "abril", "mayo", "junio",
+            "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+        ];
 
         const dia = dias[date.getDay()];
         const numeroDate = date.getDate();
@@ -103,157 +29,77 @@ export default function Tasks() {
         return `${dia}, ${numeroDate} de ${mes}`;
     };
 
-    // Función para crear una nueva tarea
-    const createTask = async (taskData) => {
-        try {
-            const response = await fetch(`${backend}/api/users/${userId}/tasks`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(taskData),
-            });
+    // Categorizar tareas
+    const categorizedTasks = useMemo(() => {
+        const now = new Date();
+        const result = {
+            atrasado: [],
+            conFecha: {},
+            sinFecha: [],
+        };
 
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status}`);
-            }
+        (tasks || []).forEach((task) => {
+            if (task.date) {
+                const taskDate = new Date(task.date);
 
-            // Recargar las tareas después de crear una nueva
-            await fetchTasks();
-
-        } catch (err) {
-            console.error('Error al crear tarea:', err);
-            setError(err.message);
-        }
-    };
-
-    // Función para eliminar una tarea
-    const deleteTask = async (taskId) => {
-        try {
-            const response = await fetch(`${backend}/api/users/${userId}/tasks/${taskId}`, {
-                method: 'DELETE',
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status}`);
-            }
-
-            // Recargar las tareas después de eliminar
-            await fetchTasks();
-
-        } catch (err) {
-            console.error('Error al eliminar tarea:', err);
-            setError(err.message);
-        }
-    };
-
-    // Función para actualizar una tarea
-    const updateTask = async (taskId, updateData) => {
-        try {
-            const response = await fetch(`${backend}/api/users/${userId}/tasks/${taskId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData),
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status}`);
-            }
-
-            // Actualizar la tarea localmente sin volver a fetch todas
-            setTasks(prevTasks => {
-                const updateTaskInList = (taskList) =>
-                    taskList.map(task =>
-                        task.id === taskId ? { ...task, ...updateData } : task
-                    );
-
-                // Actualizar atrasado
-                const newAtrasado = updateTaskInList(prevTasks.atrasado);
-                // Actualizar sinFecha
-                const newSinFecha = updateTaskInList(prevTasks.sinFecha);
-                // Actualizar conFecha
-                const newConFecha = {};
-                for (const date in prevTasks.conFecha) {
-                    newConFecha[date] = updateTaskInList(prevTasks.conFecha[date]);
+                if (taskDate < now && task.status === false) {
+                    result.atrasado.push(task);
+                } else {
+                    const formattedDate = formatDate(taskDate);
+                    if (!result.conFecha[formattedDate]) {
+                        result.conFecha[formattedDate] = [];
+                    }
+                    result.conFecha[formattedDate].push(task);
                 }
+            } else {
+                result.sinFecha.push(task);
+            }
+        });
 
-                return {
-                    atrasado: newAtrasado,
-                    sinFecha: newSinFecha,
-                    conFecha: newConFecha
-                };
-            });
+        return result;
+    }, [tasks]);
 
-        } catch (err) {
-            console.error('Error al actualizar tarea:', err);
-            setError(err.message);
-        }
+    // Acciones conectadas al store
+    const updateTask = (taskId, updateData) => {
+        dispatch({
+            type: "UPDATE_TASK",
+            payload: { id: taskId, ...updateData },
+        });
     };
 
-    // Cargar tareas al montar el componente
-    useEffect(() => {
-        fetchTasks();
-    }, []);
+    const deleteTask = (taskId) => {
+        dispatch({
+            type: "DELETE_TASK",
+            payload: taskId,
+        });
+    };
 
-
-
-    // (activado/desactivado)
+    // Filtros
     const toggleFilter = (filterType) => {
-        setActiveFilters(prev => ({
+        setActiveFilters((prev) => ({
             ...prev,
-            [filterType]: !prev[filterType]
+            [filterType]: !prev[filterType],
         }));
     };
-    // Pone los checkbox desactivados (Limpia)
+
     const clearAllFilters = () => {
         setActiveFilters({
             atrasado: false,
             conFecha: false,
-            sinFecha: false
+            sinFecha: false,
         });
     };
-    // Pone los checkbox activados
+
     const selectAllFilters = () => {
         setActiveFilters({
             atrasado: true,
             conFecha: true,
-            sinFecha: true
+            sinFecha: true,
         });
     };
 
-    // Si está cargando
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Cargando tareas...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Si hay error
-    if (error) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <p className="text-red-600 mb-4">Error al cargar tareas: {error}</p>
-                    <button
-                        onClick={fetchTasks}
-                        className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors"
-                    >
-                        Reintentar
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4 border-gray-400">
-
             {/* Encabezado */}
             <div className="relative w-full max-w-lg mb-4 flex items-center">
                 <h1 className="text-2xl font-bold mx-auto">Tareas</h1>
@@ -270,27 +116,44 @@ export default function Tasks() {
                 {/* Sección Atrasado */}
                 {activeFilters.atrasado && (
                     <TasksSection title="Atrasado">
-                        {tasks.atrasado.map((task) => (
-                            <TaskItem key={task.id} {...task} onUpdate={updateTask} onDelete={deleteTask} />
+                        {categorizedTasks.atrasado.map((task) => (
+                            <TaskItem
+                                key={task.id}
+                                {...task}
+                                onUpdate={updateTask}
+                                onDelete={deleteTask}
+                            />
                         ))}
                     </TasksSection>
                 )}
 
                 {/* Sección con fecha */}
-                <div>
-                    {activeFilters.conFecha && Object.entries(tasks.conFecha).map(([date, taskList]) => (
+                {activeFilters.conFecha &&
+                    Object.entries(categorizedTasks.conFecha).map(([date, taskList]) => (
                         <TasksSection key={date} title={date}>
                             {taskList.map((task) => (
-                                <TaskItem key={task.id} {...task} onUpdate={updateTask} onDelete={deleteTask} />
+                                <TaskItem
+                                    key={task.id}
+                                    {...task}
+                                    onUpdate={updateTask}
+                                    onDelete={deleteTask}
+                                />
                             ))}
                         </TasksSection>
                     ))}
-                </div>
+
                 {/* Sección Sin fecha */}
                 {activeFilters.sinFecha && (
                     <TasksSection title="Sin fecha">
-                        {tasks.sinFecha.length > 0 ? (
-                            tasks.sinFecha.map((task) => <TaskItem key={task.id} {...task} onUpdate={updateTask} onDelete={deleteTask} />)
+                        {categorizedTasks.sinFecha.length > 0 ? (
+                            categorizedTasks.sinFecha.map((task) => (
+                                <TaskItem
+                                    key={task.id}
+                                    {...task}
+                                    onUpdate={updateTask}
+                                    onDelete={deleteTask}
+                                />
+                            ))
                         ) : (
                             <div className="text-gray-400 text-sm p-4">No hay tareas</div>
                         )}
@@ -298,12 +161,14 @@ export default function Tasks() {
                 )}
 
                 {/* Mensaje cuando no hay filtros activos */}
-                {!activeFilters.atrasado && !activeFilters.conFecha && !activeFilters.sinFecha && (
-                    <div className="text-center text-gray-400 py-8">
-                        <p className="text-lg">No hay filtros seleccionados</p>
-                        <p className="text-sm">Usa el botón "Filtrar" para mostrar tareas</p>
-                    </div>
-                )}
+                {!activeFilters.atrasado &&
+                    !activeFilters.conFecha &&
+                    !activeFilters.sinFecha && (
+                        <div className="text-center text-gray-400 py-8">
+                            <p className="text-lg">No hay filtros seleccionados</p>
+                            <p className="text-sm">Usa el botón "Filtrar" para mostrar tareas</p>
+                        </div>
+                    )}
             </div>
 
             {/* Popup de Filtros */}
@@ -311,7 +176,9 @@ export default function Tasks() {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-semibold text-gray-800">Filtrar Tareas</h3>
+                            <h3 className="text-lg font-semibold text-gray-800">
+                                Filtrar Tareas
+                            </h3>
                             <button
                                 onClick={() => setShowFilterPopup(false)}
                                 className="text-gray-400 hover:text-gray-600 text-xl"
@@ -326,11 +193,13 @@ export default function Tasks() {
                                 <input
                                     type="checkbox"
                                     checked={activeFilters.atrasado}
-                                    onChange={() => toggleFilter('atrasado')}
+                                    onChange={() => toggleFilter("atrasado")}
                                     className="circular-checkbox text-gray-600 focus:ring-red-500"
                                 />
                                 <span className="text-gray-700">Tareas Atrasadas</span>
-                                <span className="ml-auto text-sm text-gray-500">({tasks.atrasado.length})</span>
+                                <span className="ml-auto text-sm text-gray-500">
+                                    ({categorizedTasks.atrasado.length})
+                                </span>
                             </label>
 
                             {/* Opción Con Fecha */}
@@ -338,11 +207,13 @@ export default function Tasks() {
                                 <input
                                     type="checkbox"
                                     checked={activeFilters.conFecha}
-                                    onChange={() => toggleFilter('conFecha')}
+                                    onChange={() => toggleFilter("conFecha")}
                                     className="circular-checkbox text-gray-600 focus:ring-blue-500"
                                 />
                                 <span className="text-gray-700">Tareas con Fecha</span>
-                                <span className="ml-auto text-sm text-gray-500">({Object.values(tasks.conFecha).flat().length})</span>
+                                <span className="ml-auto text-sm text-gray-500">
+                                    {Object.values(categorizedTasks.conFecha).flat().length}
+                                </span>
                             </label>
 
                             {/* Opción Sin Fecha */}
@@ -350,11 +221,13 @@ export default function Tasks() {
                                 <input
                                     type="checkbox"
                                     checked={activeFilters.sinFecha}
-                                    onChange={() => toggleFilter('sinFecha')}
+                                    onChange={() => toggleFilter("sinFecha")}
                                     className="circular-checkbox text-gray-600 focus:ring-green-500"
                                 />
                                 <span className="text-gray-700">Tareas sin Fecha</span>
-                                <span className="ml-auto text-sm text-gray-500">({tasks.sinFecha.length})</span>
+                                <span className="ml-auto text-sm text-gray-500">
+                                    {categorizedTasks.sinFecha.length}
+                                </span>
                             </label>
                         </div>
 
@@ -404,17 +277,6 @@ export default function Tasks() {
                     background-color: currentColor;
                 }
                 
-                .circular-checkbox:checked::after {
-                    content: '';
-                    position: absolute;
-                    color: white;
-                    font-size: 12px;
-                    font-weight: bold;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                }
-                
                 .circular-checkbox:hover {
                     transform: scale(1.1);
                 }
@@ -422,6 +284,3 @@ export default function Tasks() {
         </div>
     );
 }
-
-
-
