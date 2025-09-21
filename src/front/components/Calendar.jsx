@@ -15,6 +15,10 @@ const Calendar = () => {
 
     const defaultCalendarId = store.calendar[0]?.id || null;
 
+    // helper: HH:mm sin AM/PM
+    const formatTime = (d) =>
+        d ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+
 
     // --- Utilidades ---
     const getLocalDateString = (date) => {
@@ -25,13 +29,46 @@ const Calendar = () => {
         return `${year}-${month}-${day}`;
     };
 
-    const formatItemDates = (item) => {
-        if (item.type === "event") {
-            return { ...item, start: item.startDate, end: item.endDate || undefined };
-        } else {
-            return { ...item, start: item.startDate || undefined, end: undefined, extendedStartTime: item.startTime || '' };
-        }
-    };
+    // Reemplaza tu formatItemDates por este
+const formatItemDates = (item) => {
+  if (item.type === "event") {
+    const allDay = !!item.allDay;
+
+    // Para all-day, FullCalendar espera solo YYYY-MM-DD
+    if (allDay) {
+      return {
+        ...item,
+        start: item.startDate,                                // "YYYY-MM-DD"
+        end: item.endDate || item.startDate || undefined,     // mismo día si no viene
+      };
+    }
+
+    // Con horas: unimos fecha + hora si hay startTime/endTime
+    const start =
+      item.startTime
+        ? `${item.startDate}T${item.startTime}`               // "YYYY-MM-DDTHH:MM"
+        : item.startDate;                                     // fallback
+
+    const endBase = item.endDate || item.startDate;
+    const end =
+      item.endTime
+        ? `${endBase}T${item.endTime}`
+        : (endBase
+            ? `${endBase}T${item.startTime || "00:00"}`
+            : undefined);
+
+    return { ...item, start, end };
+  }
+
+  // Tasks: igual que antes
+  return {
+    ...item,
+    start: item.startDate || undefined,
+    end: undefined,
+    extendedStartTime: item.startTime || ''
+  };
+};
+
 
     // Pequeño ajuste para evitar undefined en colores
     const getCalendarsColors = () => {
@@ -407,41 +444,52 @@ const toBackendEventBody = (evt) => {
     ];
 
     const renderEventContent = (eventInfo) => {
-        const { type, groupId, done, id, extendedStartTime } = eventInfo.event.extendedProps;
-        const isAllDay = eventInfo.event.allDay;
+  const { type, groupId, done, id, extendedStartTime } = eventInfo.event.extendedProps;
+  const isAllDay = eventInfo.event.allDay;
 
-        if (type === 'task') {
-            const color = taskGroupsColors[groupId]?.border || '#000';
-            const displayTime = !isAllDay && extendedStartTime ? extendedStartTime : '';
-            return (
-                <div className="flex items-center gap-2" style={{ padding: '4px 6px' }}>
-                    <div
-                        onClick={(e) => { e.stopPropagation(); toggleTaskDone(id); }}
-                        style={{
-                            width: '1em', height: '1em', minWidth: '12px', minHeight: '12px',
-                            borderRadius: '50%', border: `0.1em solid ${color}`,
-                            backgroundColor: done ? color : 'transparent',
-                            cursor: 'pointer', flexShrink: 0
-                        }}
-                    />
-                    {displayTime && <span style={{ marginRight: '0.3em', fontWeight: 'bold' }}>{displayTime}</span>}
-                    <span style={{ textDecoration: done ? 'line-through' : 'none' }}>
-                        {eventInfo.event.title}
-                    </span>
-                </div>
-            );
-        } else {
-            const startTimeDisplay = !isAllDay && eventInfo.event.start
-                ? eventInfo.event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-                : '';
-            return (
-                <div style={{ padding: '4px 6px' }}>
-                    {startTimeDisplay && <span style={{ marginRight: '0.3em', fontWeight: 'bold' }}>{startTimeDisplay}</span>}
-                    {eventInfo.event.title}
-                </div>
-            );
-        }
-    };
+  if (type === "task") {
+    const color = taskGroupsColors[groupId]?.border || "#000";
+    const displayTime = !isAllDay && extendedStartTime ? extendedStartTime : "";
+    return (
+      <div className="flex items-center gap-2" style={{ padding: "4px 6px" }}>
+        <div
+          onClick={(e) => { e.stopPropagation(); toggleTaskDone(id); }}
+          style={{
+            width: "1em", height: "1em", minWidth: "12px", minHeight: "12px",
+            borderRadius: "50%", border: `0.1em solid ${color}`,
+            backgroundColor: done ? color : "transparent",
+            cursor: "pointer", flexShrink: 0
+          }}
+        />
+        {displayTime && <span style={{ marginRight: "0.3em", fontWeight: "bold" }}>{displayTime}</span>}
+        <span style={{ textDecoration: done ? "line-through" : "none" }}>
+          {eventInfo.event.title}
+        </span>
+      </div>
+    );
+  }
+
+  // === EVENTO (con horas de inicio–fin) ===
+  const startStr = !isAllDay
+    ? (eventInfo.event.start ? formatTime(eventInfo.event.start) : (eventInfo.event.extendedProps.startTime || ""))
+    : "";
+
+  const endStr = !isAllDay
+    ? (eventInfo.event.end ? formatTime(eventInfo.event.end) : (eventInfo.event.extendedProps.endTime || ""))
+    : "";
+
+  return (
+    <div style={{ padding: "4px 6px" }}>
+      {startStr && (
+        <span style={{ marginRight: "0.3em", fontWeight: "bold" }}>
+          {endStr ? `${startStr}–${endStr}` : startStr}
+        </span>
+      )}
+      {eventInfo.event.title}
+    </div>
+  );
+};
+
 
     return (
         <div>
