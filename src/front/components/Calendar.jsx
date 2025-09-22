@@ -12,7 +12,7 @@ const Calendar = () => {
   const calendarRef = useRef(null);
   const [popover, setPopover] = useState(null);
   const [title, setTitle] = useState('');
-
+  const [isCompact, setIsCompact] = useState(window.innerWidth < 640);
   const defaultCalendarId = store.calendar[0]?.id || null;
 
   // helper: HH:mm sin AM/PM
@@ -105,14 +105,11 @@ const Calendar = () => {
 
     const isEvent = item.type === 'event';
 
-    // --- EVENTOS (persistencia real con optimistic UI) ---
     if (isEvent) {
+      // --- Eventos (igual que antes) ---
       const isUpdate = !!item.id;
-
-      // ↪️ ACTUALIZAR
       if (isUpdate) {
         const optimistic = { ...item, id: String(item.id) };
-        // Optimistic
         dispatch({ type: "UPDATE_EVENT", payload: optimistic });
         try {
           const body = toBackendEventBody(optimistic);
@@ -120,7 +117,6 @@ const Calendar = () => {
           const normalized = normalizeEventFromServer(data);
           dispatch({ type: "UPDATE_EVENT", payload: normalized });
         } catch (e) {
-          // Rollback a lo que tenías antes
           dispatch({ type: "UPDATE_EVENT", payload: item });
           console.error("Error guardando evento:", e);
           alert(e?.message || "No se pudo guardar el evento");
@@ -129,47 +125,57 @@ const Calendar = () => {
         return;
       }
 
-      // ↪️ CREAR
+      // Crear nuevo evento
       const tempId = (Date.now() + Math.random()).toString();
-      const optimistic = {
-        ...item,
-        id: tempId,
-      };
-
-      // 1) Optimistic: lo mostramos ya
+      const optimistic = { ...item, id: tempId };
       dispatch({ type: "ADD_EVENT", payload: optimistic });
-
       try {
-        // 2) Llamada real
         const body = toBackendEventBody(optimistic);
         const data = await apiCreateEvent(body);
         const normalized = normalizeEventFromServer(data);
-
-        // 3) Reemplazar el temporal por el real
         dispatch({ type: "DELETE_EVENT", payload: tempId });
         dispatch({ type: "ADD_EVENT", payload: normalized });
       } catch (e) {
-        // 4) Rollback si falla
         dispatch({ type: "DELETE_EVENT", payload: tempId });
         console.error("Error guardando evento:", e);
         alert(e?.message || "No se pudo guardar el evento");
       }
-
       setPopover(null);
       return;
     }
 
-    // --- TAREAS (igual que ya tenías) ---
-    const formattedItem = {
-      ...item,
-      id: item.id ? String(item.id) : (Date.now() + Math.random()).toString(),
-    };
-    const exists = store.tasks.some(x => String(x.id) === String(formattedItem.id));
-    dispatch({ type: exists ? "UPDATE_TASK" : "ADD_TASK", payload: formattedItem });
+    // --- Tareas ---
+    const taskId = item.originalId ?? item.id; // <--- usar originalId si existe
+    const formattedItem = { ...item, id: String(taskId) };
+    const exists = store.tasks.some(x => String(x.id) === formattedItem.id);
+
+    if (exists) {
+      // Actualizar tarea
+      dispatch({ type: "UPDATE_TASK", payload: formattedItem });
+
+      const userId = getUserId({ storeUser: store.user });
+      if (userId) {
+        const iso = formattedItem.startTime
+          ? `${formattedItem.startDate}T${formattedItem.startTime}:00`
+          : `${formattedItem.startDate}T00:00:00`;
+        try {
+          await apiUpdateUserTask(Number(userId), Number(formattedItem.id), {
+            title: formattedItem.title,
+            date: iso,
+          });
+        } catch (e) {
+          console.error("Error actualizando tarea:", e);
+          alert(e?.message || "No se pudo actualizar la tarea");
+        }
+      }
+    } else {
+      // Crear nueva tarea
+      const tempId = (Date.now() + Math.random()).toString();
+      dispatch({ type: "ADD_TASK", payload: { ...formattedItem, id: tempId } });
+    }
+
     setPopover(null);
   };
-
-
 
 
 
@@ -416,7 +422,7 @@ const Calendar = () => {
     const updatedItem = type === 'event'
       ? store.events.find(e => e.id === String(originalId))
       : store.tasks.find(t => t.id === originalId);
-console.log(updatedItem);
+    console.log(updatedItem);
     if (!updatedItem) return;
 
     if (type === 'event') {
@@ -438,7 +444,13 @@ console.log(updatedItem);
       if (x < 0) x = 10;
       if (y < 0) y = rect.bottom + 10;
 
-      setPopover({ x, y, item: updatedItem });
+      setPopover({
+        x, y,
+        item: {
+          ...updatedItem,
+          originalId: updatedItem.id, // <--- importante
+        }
+      });
     }
   };
 
@@ -457,14 +469,43 @@ console.log(updatedItem);
   const goToday = () => { calendarRef.current?.getApi().today(); updateTitle(); };
   const handleViewChange = (e) => { calendarRef.current?.getApi().changeView(e.target.value); updateTitle(); };
 
-  // --- Renderizado ---
   const allItems = [
     ...store.events.map(e => ({ ...e, type: 'event' })),
     ...store.tasks.map(t => ({ ...t, type: 'task' }))
   ];
-
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsCompact(window.innerWidth < 640); // cambia 640 a tu breakpoint deseado
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  
+  // --- Renderizado ---
   const renderEventContent = (eventInfo) => {
-    const { type, groupId, done, id, extendedStartTime } = eventInfo.event.extendedProps;
+    const { type, groupId } = eventInfo.event.extendedProps;
+
+    if (isCompact) {
+      const color = type === "task"
+        ? taskGroupsColors[groupId]?.border || "#000"
+        : calendarsColors[eventInfo.event.extendedProps.calendarId]?.background || "#000";
+
+      return (
+        <div
+          style={{
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            backgroundColor: color,
+            margin: "auto",
+          }}
+        />
+      );
+    }
+
+    // --- Render normal (tu código actual) ---
+    const { done, id, extendedStartTime } = eventInfo.event.extendedProps;
     const isAllDay = eventInfo.event.allDay;
 
     if (type === "task") {
@@ -489,7 +530,6 @@ console.log(updatedItem);
       );
     }
 
-    // === EVENTO (con horas de inicio–fin) ===
     const startStr = !isAllDay
       ? (eventInfo.event.start ? formatTime(eventInfo.event.start) : (eventInfo.event.extendedProps.startTime || ""))
       : "";
@@ -509,7 +549,6 @@ console.log(updatedItem);
       </div>
     );
   };
-
 
   return (
     <div>
@@ -559,20 +598,57 @@ console.log(updatedItem);
               done: item.done ?? false,
               ...rest
             },
+            
             display: 'block',
             startEditable: true,
             durationEditable: type === 'event',
             editable: true,
           };
         })}
+        eventDidMount={(info) => {
+    if (info.event.extendedProps.type === "task") {
+      // Aplica borde y fondo al <a>
+      info.el.style.borderRadius = "16px";
+      info.el.style.overflow = "hidden";
+      info.el.style.backgroundColor = "#fff"; // o rgba si quieres semitransparente
+      info.el.style.border = `1px solid ${info.event.extendedProps.groupColor || '#5a8770'}`;
+
+      // También aplica a fc-event-main para que el contenido respete el borde
+      const main = info.el.querySelector('.fc-event-main');
+      if (main) {
+        main.style.borderRadius = "16px";
+        main.style.overflow = "hidden";
+      }
+    }
+  }}
+dayCellDidMount={(info) => {
+  if (info.isToday) {
+    const numberEl = info.el.querySelector(".fc-daygrid-day-number, .fc-col-header-cell-cushion");
+    if (numberEl) {
+      numberEl.classList.add(
+        "bg-red-500",
+        "text-white",
+        "rounded-full",
+        "w-7",
+        "h-7",
+        "flex",
+        "items-center",
+        "justify-center",
+        "ms-auto",
+        "font-semibold"
+      );
+    }
+  }
+}}
         displayEventTime
         eventContent={renderEventContent}
         dateClick={handleDateClick}
         selectable
         datesSet={updateTitle}
-        height="auto"
+        height="75vh"
         expandRows
         nowIndicator
+        dayMaxEvents={true}
         eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
         eventDrop={handleEventDrop}
         eventResize={handleEventResize}
@@ -580,7 +656,7 @@ console.log(updatedItem);
       />
 
       {popover && (
-        <div className="popover bs-popover-top show position-absolute popover-form"
+        <div className="popover bs-popover-top show position-absolute popover-form form-appear bg-white/30 backdrop-blur-md p-6 rounded-lg shadow-lg p-0"
           style={{ top: popover.y, left: popover.x, zIndex: 2000, minWidth: 320, maxWidth: 500, width: 'auto' }}
         >
           <div className="popover-arrow"></div>

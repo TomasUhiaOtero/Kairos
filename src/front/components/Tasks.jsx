@@ -111,17 +111,21 @@ export default function Tasks({ tasks }) {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center p-4 border-gray-400">
-            <div className="w-full max-w-2xl border-gray-300 shadow-md rounded-2xl bg-white p-10 space-y-20">
-                <div className="relative w-full max-w-lg mb-4 flex items-center">
-                    <h1 className="text-2xl font-bold mx-auto">Tareas</h1>
-                    <button
-                        onClick={() => setShowFilterPopup(true)}
-                        className="absolute right-0 top-3 text-sky-600 text-sm hover:text-sky-800 transition-colors"
-                    >
-                        Filtrar
-                    </button>
-                </div>
+
+        <div className="flex flex-col items-center p-3 border-gray-400 my-card">
+
+            {/* Contenedor general */}
+            {/* Encabezado */}
+            <div className="relative w-full max-w-lg mb-4 flex items-center">
+                <h1 className="text-2xl font-bold mx-auto">Tareas</h1>
+                <button
+                    onClick={() => setShowFilterPopup(true)}
+                    className="absolute right-0 top-3 text-sky-600 text-sm hover:text-sky-800 transition-colors"
+                >
+                    Filtrar
+                </button>
+            </div>
+            <div className="w-full max-w-2xl rounded-2xl bg-white p-3 space-y-20">
 
                 {/* Sección Atrasado */}
                 {activeFilters.atrasado && (

@@ -31,7 +31,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
     const isEdit = !!item?.id;
     const isTask = item?.type === "task";
-    const isNewItem = !item?.id; 
+    const isNewItem = !item?.id;
 
     // Tabs
     const [activeTab, setActiveTab] = useState(
@@ -61,7 +61,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
             return "";
         }
         if (item?.type === "event") {
-            return "09:00"; 
+            return "09:00";
         }
         return "";
     });
@@ -116,50 +116,51 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
             };
             onAddItem(newEvent);
         } else {
-          (async () => {
-            const userId = getUserId({ storeUser: store.user });
-            if (!userId) { alert("No se pudo identificar al usuario."); return; }
-            if (!taskTitle?.trim()) return;
-            if (!taskGroup) { alert("Selecciona un grupo de tareas."); return; }
-        
-            // Normaliza groupId y toma un color seguro (NOT NULL)
-            const groupIdNum = Number(taskGroup);
-            const group = store.taskGroup.find(g => Number(g.id) === groupIdNum);
-            const safeColor = (group?.color && String(group.color).trim()) || "#000000"; // fallback
-        
-            // Fecha a medianoche para "solo día"
-            const dateISO = startDate ? `${startDate}T00:00:00` : null;
-        
-            const payload = {
-              title: taskTitle.trim(),
-              status: false,
-              date: dateISO,
-              color: safeColor,          // <-- clave del fix: nunca null
-              // NO enviamos 'recurrencia' hasta confirmar el tipo en DB
-            };
-        
-            try {
-              const created = await apiCreateTaskInGroup(userId, groupIdNum, payload);
-              const normalized = {
-                id: String(created.id),// <--- fuerza string
-                type: "task",
-                title: created.title,
-                groupId: created.task_group_id ?? groupIdNum,
-                done: !!created.status,
-                startDate: created.date ? String(created.date).slice(0, 10) : null,
-              };
-              onAddItem(normalized);
-            } catch (err) {
-              console.error("Error creando tarea:", err);
-              alert(err?.message || "Error creando la tarea");
-              return;
-            }
-          })();
+            (async () => {
+                const userId = getUserId({ storeUser: store.user });
+                if (!userId) { alert("No se pudo identificar al usuario."); return; }
+                if (!taskTitle?.trim()) return;
+                if (!taskGroup) { alert("Selecciona un grupo de tareas."); return; }
+
+                // Normaliza groupId y toma un color seguro (NOT NULL)
+                const groupIdNum = Number(taskGroup);
+                const group = store.taskGroup.find(g => Number(g.id) === groupIdNum);
+                const safeColor = (group?.color && String(group.color).trim()) || "#000000"; // fallback
+
+                // Fecha a medianoche para "solo día"
+                const dateISO = startDate ? `${startDate}T00:00:00` : null;
+
+                const payload = {
+                    title: taskTitle.trim(),
+                    status: false,
+                    date: dateISO,
+                    color: safeColor,          // <-- clave del fix: nunca null
+                    // NO enviamos 'recurrencia' hasta confirmar el tipo en DB
+                };
+
+                try {
+                    const created = await apiCreateTaskInGroup(userId, groupIdNum, payload);
+                    const normalized = {
+                        id: String(created.id),// <--- fuerza string
+                        type: "task",
+                        title: created.title,
+                        groupId: created.task_group_id ?? groupIdNum,
+                        done: !!created.status,
+                        startDate: created.date ? String(created.date).slice(0, 10) : null,
+                    };
+                    onAddItem(normalized);
+                } catch (err) {
+                    console.error("Error creando tarea:", err);
+                    alert(err?.message || "Error creando la tarea");
+                    return;
+                }
+            })();
         }
 
         if (onClose) onClose();
     };
-
+    //--------------------------------
+    // USE EFFECT
     useEffect(() => {
         if (isEdit) {
             setActiveTab(isTask ? "tarea" : "evento");
@@ -169,28 +170,28 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
     useEffect(() => {
         if (isNewItem) {
             if (activeTab === "tarea") {
-                setStartTime(""); 
-                setEndTime("");  
+                setStartTime("");
+                setEndTime("");
             } else if (activeTab === "evento") {
-                setStartTime("09:00"); 
+                setStartTime("09:00");
                 setEndTime("09:15");
             }
         }
     }, [activeTab, isNewItem]);
 
     useEffect(() => {
-        if (item?.id) { 
+        if (item?.id) {
             if (item.type === "event") {
                 setStartDate(formatDateLocal(item.startDate));
                 setEndDate(formatDateLocal(item.endDate));
-                setStartTime(item.startTime || "09:00"); 
+                setStartTime(item.startTime || "09:00");
                 setEndTime(item.endTime || "09:15");
                 const diffDays = Math.round((new Date(item.endDate) - new Date(item.startDate)) / (1000 * 60 * 60 * 24));
                 setDurationDays(diffDays);
             } else if (item.type === "task") {
                 setStartDate(formatDateLocal(item.startDate));
                 setStartTime(item.startTime || "");
-                setEndTime("");  
+                setEndTime("");
             }
         } else {
             const today = formatDateLocal(selectedDate || new Date());
@@ -223,18 +224,26 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
     return (
         <div className="d-flex flex-column gap-2">
             {!isEdit && (
-                <ul className="nav nav-pills mb-2 justify-center">
-                    <li className="nav-item">
+                <ul className="flex justify-center gap-2 mb-2">
+                    <li>
                         <button
-                            className={`nav-link ${activeTab === "evento" ? "active" : ""}`}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors
+        ${activeTab === "evento"
+                                    ? "bg-emerald-700 text-white"
+                                    : "text-gray-700 hover:text-avocado-600 hover:bg-neutral-100"
+                                }`}
                             onClick={() => setActiveTab("evento")}
                         >
                             Evento
                         </button>
                     </li>
-                    <li className="nav-item">
+                    <li>
                         <button
-                            className={`nav-link ${activeTab === "tarea" ? "active" : ""}`}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors
+        ${activeTab === "tarea"
+                                    ? "bg-emerald-700 text-white"
+                                    : "text-gray-700 hover:text-avocado-600 hover:bg-neutral-100"
+                                }`}
                             onClick={() => setActiveTab("tarea")}
                         >
                             Tarea
@@ -263,7 +272,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                             <p className="text-gray-500">Crea un calendario primero</p>
                         )}
                         <div
-                            className="w-6 h-6 rounded-circle border"
+                            className="w-6 h-6 rounded-full border flex-shrink-0"
                             style={{ backgroundColor: selectedEvent?.color || "#ccc", borderColor: selectedEvent?.color || "#888" }}
                         />
                     </div>
@@ -372,7 +381,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                         <button
                             type="submit"
                             className="btn btn-primary btn-sm"
-                            disabled={store.taskGroup.length === 0 || !taskGroup} 
+                            disabled={store.taskGroup.length === 0 || !taskGroup}
                         >
                             {isEdit ? "Actualizar" : "Guardar"}
                         </button>
