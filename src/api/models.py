@@ -75,15 +75,15 @@ class Event(db.Model):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey('user.id'), nullable=False)
     calendar_id: Mapped[int] = mapped_column(   # Enlaza con Calendar
-        Integer, ForeignKey('calendar.id'), nullable=False
+        Integer, ForeignKey('calendar.id', ondelete="CASCADE"), nullable=False
     )
 
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    description: Mapped[str] = mapped_column(Text)
-    color: Mapped[str] = mapped_column(String(50))
-
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    color: Mapped[str] = mapped_column(String(50), nullable=True)
+    all_day: Mapped[bool] = mapped_column(Boolean, default=False)
     google_event_id: Mapped[str] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="confirmed")
 
@@ -100,6 +100,7 @@ class Event(db.Model):
             "title": self.title,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "end_date": self.end_date.isoformat() if self.end_date else None,
+            "all_day": self.all_day,
             "description": self.description,
             "color": self.color,
             "google_event_id": self.google_event_id,
@@ -127,8 +128,8 @@ class Task(db.Model):
 
     # Relaciones
     user = relationship("User", back_populates="tasks")
-    task_groups = relationship("TaskGroup", back_populates="tasks",
-                               cascade="all")
+    task_groups = relationship("TaskGroup", back_populates="tasks")
+                               
 
     def serialize(self):
         return {

@@ -9,7 +9,13 @@ export function getBackendBase() {
 
 export async function authFetch(path, options = {}) {
   const base = getBackendBase();
-  const token = localStorage.getItem("token");
+
+  const possibleKeys = ["token", "access_token", "accessToken", "jwt"];
+  let token = null;
+  for (const k of possibleKeys) {
+    token = token || localStorage.getItem(k) || sessionStorage.getItem(k);
+  }
+  if (token && token.startsWith("Bearer ")) token = token.slice(7);
 
   const headers = {
     ...(options.headers || {}),
@@ -19,7 +25,6 @@ export async function authFetch(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  // Por defecto mandamos JSON si hay body
   if (options.body && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
@@ -28,24 +33,25 @@ export async function authFetch(path, options = {}) {
   return resp;
 }
 
-// Helper para parsear JSON y lanzar error si no es ok
 async function handleJSON(path, options = {}) {
   const res = await authFetch(path, options);
   let data = null;
   try {
     data = await res.json();
-  } catch (_) {
-    // puede ser vacío
-  }
+  } catch (_) {}
+
   if (!res.ok) {
-    const msg = (data && (data.message || data.error)) || res.statusText;
-    const err = new Error(msg);
+    // Incluye el detail si viene del backend
+    const baseMsg = (data && (data.message || data.error)) || res.statusText || "Request failed";
+    const detail = data && data.detail ? `: ${data.detail}` : "";
+    const err = new Error(`${baseMsg}${detail}`);
     err.status = res.status;
     err.data = data;
     throw err;
   }
   return data;
 }
+
 
 // Construir query strings fácilmente
 function buildQuery(params = {}) {
@@ -55,6 +61,49 @@ function buildQuery(params = {}) {
   });
   return qs.toString() ? `?${qs.toString()}` : "";
 }
+
+// ============================
+// Utilidades de identidad
+// ============================
+
+function b64urlToB64(b64url) {
+  let b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = b64.length % 4;
+  if (pad === 2) b64 += "==";
+  else if (pad === 3) b64 += "=";
+  else if (pad !== 0) b64 += "===";
+  return b64;
+}
+
+function safeAtob(str) {
+  try {
+    return atob(str);
+  } catch {
+    return atob(b64urlToB64(str));
+  }
+}
+
+export function getUserId({ storeUser } = {}) {
+  if (storeUser && (storeUser.id || storeUser.user_id)) {
+    return storeUser.id ?? storeUser.user_id;
+  }
+  let token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  if (!token) return null;
+  if (token.startsWith("Bearer ")) token = token.slice(7);
+
+  const parts = token.split(".");
+  if (parts.length < 1) return null;
+
+  try {
+    const payloadStr = atob(parts[0]); // primera parte = JSON
+    const payload = JSON.parse(payloadStr);
+    return payload.user_id ?? payload.id ?? null;
+  } catch (err) {
+    console.error("Error decodificando token:", err);
+    return null;
+  }
+}
+
 
 // ============================
 // EVENTS
@@ -108,6 +157,30 @@ export async function apiDeleteTask(id) {
   return handleJSON(`/api/tasks/${id}`, { method: "DELETE" });
 }
 
+export async function apiCreateTaskInGroup(userId, groupId, body) {
+  return handleJSON(`/api/users/${userId}/groups/${groupId}/tasks`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// Actualizar una tarea del usuario (usa tus rutas existentes)
+export async function apiUpdateUserTask(userId, taskId, body) {
+  return handleJSON(`/api/users/${userId}/tasks/${taskId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+// Borrar tarea del usuario (NO toca el grupo)
+export async function apiDeleteUserTask(userId, taskId) {
+    return handleJSON(`/api/users/${userId}/tasks/${taskId}`, {
+        method: "DELETE",
+    });
+}
+
+
+
 // ============================
 // CALENDARS
 // ============================
@@ -138,6 +211,10 @@ export async function apiDeleteCalendar(id) {
 // TASK GROUPS
 // ============================
 
+export async function apiListUserTaskGroups(userId) {
+  return handleJSON(`/api/users/${userId}/groups`);
+}
+
 export async function apiListTaskGroups() {
   return handleJSON(`/api/task-groups`);
 }
@@ -160,65 +237,90 @@ export async function apiDeleteTaskGroup(id) {
   return handleJSON(`/api/task-groups/${id}`, { method: "DELETE" });
 }
 
-export const loadInitialData = async (dispatch, token) => {
-  const base = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/json",
-  };
-  console.log("Cargando datos iniciales...");
-  try {
-    // Helper function para fetch con mejor error handling
-    const fetchData = async (endpoint) => {
-      console.log(` Fetching: ${base}${endpoint}`);
-      const response = await fetch(`${base}${endpoint}`, { headers });
-      console.log(` ${endpoint} - Status:`, response.status);
-      if (!response.ok) {
-        throw new Error(
-          `Error ${response.status} en ${endpoint}: ${response.statusText}`
-        );
-      }
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error(`:x: ${endpoint} devolvió HTML:`, text.substring(0, 200));
-        throw new Error(`${endpoint} no devolvió JSON válido`);
-      }
-      return await response.json();
+// ============================
+// Carga inicial 
+// ============================
+export const loadInitialData = async (dispatch, token, storeUser = null) => {
+    const base = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
+    const headers = {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
     };
-    // Calendars + Events
+
+    // ⬇️ función para obtener userId (según tu token no-JWT)
+    const getUserId = ({ storeUser } = {}) => {
+        if (storeUser && (storeUser.id || storeUser.user_id)) {
+            return storeUser.id ?? storeUser.user_id;
+        }
+        let t = localStorage.getItem("token") || sessionStorage.getItem("token");
+        if (!t) return null;
+        if (t.startsWith("Bearer ")) t = t.slice(7);
+        const parts = t.split(".");
+        if (parts.length < 1) return null;
+        try {
+            const payload = JSON.parse(atob(parts[0]));
+            return payload.user_id ?? payload.id ?? null;
+        } catch {
+            return null;
+        }
+    };
+
+    const userId = getUserId({ storeUser });
+
+    const fetchJSON = async (endpoint) => {
+        const res = await fetch(`${base}${endpoint}`, { headers });
+        if (!res.ok) {
+            const txt = await res.text().catch(() => "");
+            throw new Error(`Error ${res.status} en ${endpoint}: ${txt || res.statusText}`);
+        }
+        const ct = res.headers.get("content-type") || "";
+        if (!ct.includes("application/json")) {
+            const txt = await res.text().catch(() => "");
+            throw new Error(`${endpoint} no devolvió JSON: ${txt?.slice(0, 200)}`);
+        }
+        return res.json();
+    };
+
     try {
-      console.log("Cargando calendarios...");
-      const calendars = await fetchData("/api/calendars");
-      console.log("Calendarios cargados:", calendars.length || 0);
-      console.log("Cargando eventos...");
-      const events = await fetchData("/api/events");
-      console.log("Eventos cargados:", events.length || 0);
-      dispatch({ type: "SET_CALENDARS", payload: { calendars, events } });
-    } catch (calError) {
-      console.warn(
-        ":advertencia: Error cargando calendarios/eventos:",
-        calError.message
-      );
-      // Continuar sin calendarios
+        // Calendarios + Eventos
+        try {
+            const calendars = await fetchJSON("/api/calendars");
+            const events = await fetchJSON("/api/events");
+            dispatch({ type: "SET_CALENDARS", payload: { calendars, events } });
+        } catch (e) {
+            console.warn("No se pudieron cargar calendarios/eventos:", e.message);
+        }
+
+        // Grupos + Tareas (usa TUS endpoints reales)
+        try {
+            if (!userId) {
+                console.warn("No hay userId; omito carga de grupos/tareas.");
+                dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: [], tasks: [] } });
+            } else {
+                const groups = await fetchJSON(`/api/users/${userId}/groups`);
+                const tasksRaw = await fetchJSON(`/api/users/${userId}/tasks`);
+
+                // Normaliza tareas al shape que usa tu UI
+                const tasks = Array.isArray(tasksRaw)
+                    ? tasksRaw.map(t => ({
+                          id: t.id,
+                          type: "task",
+                          title: t.title,
+                          groupId: t.task_group_id,
+                          done: !!t.status,
+                          startDate: t.date ? String(t.date).slice(0, 10) : null,
+                      }))
+                    : [];
+
+                // ⬅️ OJO: el reducer espera 'taskgroup' (no 'groups')
+                dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: groups, tasks } });
+            }
+        } catch (e) {
+            console.warn("No se pudieron cargar grupos/tareas:", e.message);
+            dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: [], tasks: [] } });
+        }
+    } catch (e) {
+        console.error("Error general en loadInitialData:", e);
+        throw e;
     }
-    // TaskGroups + Tasks
-    try {
-      console.log(":nota: Cargando grupos de tareas...");
-      const groups = await fetchData("/api/taskgroups");
-      console.log("Grupos cargados:", groups.length || 0);
-      console.log("Cargando tareas...");
-      const tasks = await fetchData("/api/tasks");
-      console.log("Tareas cargadas:", tasks.length || 0);
-      dispatch({ type: "SET_TASKGROUPS", payload: { groups, tasks } });
-    } catch (taskError) {
-      console.warn(":advertencia: Error cargando tareas:", taskError.message);
-      // Continuar sin tareas
-      dispatch({ type: "SET_TASKGROUPS", payload: { groups: [], tasks: [] } });
-    }
-    console.log("Carga de datos iniciales completada");
-  } catch (error) {
-    console.error("Error general cargando datos iniciales:", error);
-    throw error; // Re-throw para que el login lo maneje
-  }
 };

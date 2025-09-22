@@ -66,16 +66,32 @@ def update_task(user_id, task_id):
     if not task:
         return jsonify({"error": "Tarea no encontrada"}), 404
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    task.title = data.get("title", task.title)
-    task.status = data.get("status", task.status)
-    task.date = data.get("date", task.date)
+    # Título y estado
+    if "title" in data:
+        task.title = data.get("title", task.title)
+    if "status" in data:
+        task.status = bool(data.get("status"))
+
+    # ⚠️ Parsear fecha ISO si viene string (p.e. "YYYY-MM-DDTHH:MM:SS" o "YYYY-MM-DD")
+    if "date" in data:
+        date_str = data.get("date")
+        if date_str is None or date_str == "":
+            task.date = None
+        else:
+            try:
+                task.date = datetime.fromisoformat(date_str)
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, debe ser ISO"}), 400
+
+    # Otros campos
     task.recurrencia = data.get("recurrencia", task.recurrencia)
     task.color = data.get("color", task.color)
 
     db.session.commit()
     return jsonify(task.serialize()), 200
+
 
 # Endpoints grupo -----------------------------------------------------------------------------------------------------------
 

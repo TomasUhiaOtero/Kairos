@@ -6,7 +6,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import CreateEvent from './CreateEvent';
 import useGlobalReducer from '../hooks/useGlobalReducer.jsx';
-
+import { apiUpdateUserTask, apiDeleteUserTask, apiCreateEvent, apiUpdateEvent, apiDeleteEvent, getUserId } from "../lib/api.js";
 const Calendar = () => {
     const { store, dispatch } = useGlobalReducer();
     const calendarRef = useRef(null);
@@ -14,6 +14,10 @@ const Calendar = () => {
     const [title, setTitle] = useState('');
 
     const defaultCalendarId = store.calendar[0]?.id || null;
+
+    // helper: HH:mm sin AM/PM
+    const formatTime = (d) =>
+        d ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
 
 
     // --- Utilidades ---
@@ -25,25 +29,60 @@ const Calendar = () => {
         return `${year}-${month}-${day}`;
     };
 
-    const formatItemDates = (item) => {
-        if (item.type === "event") {
-            return { ...item, start: item.startDate, end: item.endDate || undefined };
-        } else {
-            return { ...item, start: item.startDate || undefined, end: undefined, extendedStartTime: item.startTime || '' };
-        }
-    };
+    // Reemplaza tu formatItemDates por este
+const formatItemDates = (item) => {
+  if (item.type === "event") {
+    const allDay = !!item.allDay;
 
+    // Para all-day, FullCalendar espera solo YYYY-MM-DD
+    if (allDay) {
+      return {
+        ...item,
+        start: item.startDate,                                // "YYYY-MM-DD"
+        end: item.endDate || item.startDate || undefined,     // mismo día si no viene
+      };
+    }
+
+    // Con horas: unimos fecha + hora si hay startTime/endTime
+    const start =
+      item.startTime
+        ? `${item.startDate}T${item.startTime}`               // "YYYY-MM-DDTHH:MM"
+        : item.startDate;                                     // fallback
+
+    const endBase = item.endDate || item.startDate;
+    const end =
+      item.endTime
+        ? `${endBase}T${item.endTime}`
+        : (endBase
+            ? `${endBase}T${item.startTime || "00:00"}`
+            : undefined);
+
+    return { ...item, start, end };
+  }
+
+  // Tasks: igual que antes
+  return {
+    ...item,
+    start: item.startDate || undefined,
+    end: undefined,
+    extendedStartTime: item.startTime || ''
+  };
+};
+
+
+    // Pequeño ajuste para evitar undefined en colores
     const getCalendarsColors = () => {
         const obj = {};
         store.calendar.forEach(cal => {
             obj[cal.id] = {
-                background: cal.color + '30',
-                border: cal.color + '00',
-                text: cal.color,
+                background: (cal.color || '#94a3b8') + '30',
+                border: (cal.color || '#94a3b8') + '00',
+                text: cal.color || '#334155',
             };
         });
         return obj;
     };
+
 
     const getTaskGroupsColors = () => {
         const obj = {};
@@ -60,78 +99,299 @@ const Calendar = () => {
     const calendarsColors = getCalendarsColors();
     const taskGroupsColors = getTaskGroupsColors();
 
-    // --- CRUD ---
-    const handleAddItem = (item) => {
-        if (!item.title?.trim()) return;
+    // --- CRUD --- (modificado max para actualixar al momento y no recargar la pajina)
+    const handleAddItem = async (item) => {
+  if (!item.title?.trim()) return;
 
-        const formattedItem = formatItemDates({
-            ...item,
-            id: (item.id || (Date.now() + Math.random())).toString(),
-        });
+  const isEvent = item.type === 'event';
 
-        if (item.type === 'event') {
-            dispatch({
-                type: item.id ? "UPDATE_EVENT" : "ADD_EVENT",
-                payload: formattedItem
-            });
-        } else if (item.type === 'task') {
-            dispatch({
-                type: item.id ? "UPDATE_TASK" : "ADD_TASK",
-                payload: formattedItem
-            });
+  // --- EVENTOS (persistencia real con optimistic UI) ---
+  if (isEvent) {
+    const isUpdate = !!item.id;
+
+    // ↪️ ACTUALIZAR
+    if (isUpdate) {
+      const optimistic = { ...item, id: String(item.id) };
+      // Optimistic
+      dispatch({ type: "UPDATE_EVENT", payload: optimistic });
+      try {
+        const body = toBackendEventBody(optimistic);
+        const data = await apiUpdateEvent(optimistic.id, body);
+        const normalized = normalizeEventFromServer(data);
+        dispatch({ type: "UPDATE_EVENT", payload: normalized });
+      } catch (e) {
+        // Rollback a lo que tenías antes
+        dispatch({ type: "UPDATE_EVENT", payload: item });
+        console.error("Error guardando evento:", e);
+        alert(e?.message || "No se pudo guardar el evento");
+      }
+      setPopover(null);
+      return;
+    }
+
+    // ↪️ CREAR
+    const tempId = (Date.now() + Math.random()).toString();
+    const optimistic = {
+      ...item,
+      id: tempId,
+    };
+
+    // 1) Optimistic: lo mostramos ya
+    dispatch({ type: "ADD_EVENT", payload: optimistic });
+
+    try {
+      // 2) Llamada real
+      const body = toBackendEventBody(optimistic);
+      const data = await apiCreateEvent(body);
+      const normalized = normalizeEventFromServer(data);
+
+      // 3) Reemplazar el temporal por el real
+      dispatch({ type: "DELETE_EVENT", payload: tempId });
+      dispatch({ type: "ADD_EVENT", payload: normalized });
+    } catch (e) {
+      // 4) Rollback si falla
+      dispatch({ type: "DELETE_EVENT", payload: tempId });
+      console.error("Error guardando evento:", e);
+      alert(e?.message || "No se pudo guardar el evento");
+    }
+
+    setPopover(null);
+    return;
+  }
+
+  // --- TAREAS (igual que ya tenías) ---
+  const formattedItem = {
+    ...item,
+    id: item.id ? String(item.id) : (Date.now() + Math.random()).toString(),
+  };
+  const exists = store.tasks.some(x => String(x.id) === String(formattedItem.id));
+  dispatch({ type: exists ? "UPDATE_TASK" : "ADD_TASK", payload: formattedItem });
+  setPopover(null);
+};
+
+
+
+
+
+    // MODIFICADO: borrar EVENTO con API + rollback
+    const handleDeleteItem = async (itemId, itemType) => {
+      if (!itemId) return;
+
+      if (itemType === "event") {
+        const prev = store.events.find(e => String(e.id) === String(itemId));
+
+        // Optimistic
+        dispatch({ type: "DELETE_EVENT", payload: itemId });
+        setPopover(null);
+
+        try {
+          await apiDeleteEvent(Number(itemId));
+        } catch (e) {
+          // Rollback
+          if (prev) dispatch({ type: "ADD_EVENT", payload: prev });
+          console.error("Error borrando evento:", e);
+          alert(e?.message || "No se pudo borrar el evento");
+        }
+        return;
+      }
+
+      // --- TAREA (tu flujo actual)
+      const userId = getUserId({ storeUser: store.user });
+      if (!userId) {
+        alert("No se pudo identificar al usuario.");
+        return;
+      }
+
+      const taskToDelete = store.tasks.find(t => String(t.id) === String(itemId));
+
+      dispatch({ type: "DELETE_TASK", payload: itemId });
+      setPopover(null);
+
+      try {
+        await apiDeleteUserTask(Number(userId), Number(itemId));
+      } catch (e) {
+        if (taskToDelete) dispatch({ type: "ADD_TASK", payload: taskToDelete });
+        console.error("Error borrando tarea:", e);
+        alert(e?.message || "No se pudo borrar la tarea");
+      }
+    };
+
+    
+
+
+    const toggleTaskDone = async (taskId) => {
+        const existingTask = store.tasks.find(t => String(t.id) === String(taskId));
+        if (!existingTask) return;
+
+        const userId = getUserId({ storeUser: store.user });
+        if (!userId) {
+            alert("No se pudo identificar al usuario.");
+            return;
         }
 
-        setPopover(null);
-    };
+        const newDone = !existingTask.done;
 
-    const handleDeleteItem = (itemId, itemType) => {
-        if (!itemId) return;
-        dispatch({ type: itemType === 'event' ? "DELETE_EVENT" : "DELETE_TASK", payload: itemId });
-        setPopover(null);
-    };
+        // Optimistic update
+        dispatch({
+            type: "UPDATE_TASK",
+            payload: { ...existingTask, done: newDone }
+        });
 
-    const toggleTaskDone = (taskId) => {
-        const existingTask = store.tasks.find(t => t.id === taskid);
-        if (existingTask) {
+        try {
+            await apiUpdateUserTask(userId, Number(taskId), { status: newDone });
+        } catch (e) {
+            // Rollback si falla
             dispatch({
                 type: "UPDATE_TASK",
-                payload: { ...existingTask, done: !existingTask.done }
+                payload: { ...existingTask, done: !newDone }
             });
+            console.error("No se pudo guardar el cambio de estado:", e);
+            alert(e?.message || "No se pudo guardar el estado de la tarea");
         }
     };
 
-    // --- Drag & Resize ---
-    const handleEventDrop = (info) => {
-        const { id, start, end, allDay } = info.event;
-        const type = info.event.extendedProps.type;
-
-        const updatedItem = type === 'event'
-            ? store.events.find(e => e.id === id)
-            : store.tasks.find(t => t.id === id);
-
-        if (!updatedItem) return;
-
-        const payload = {
-            ...updatedItem,
-            startDate: getLocalDateString(start),
-            endDate: type === 'event' ? (end ? getLocalDateString(end) : getLocalDateString(start)) : undefined,
-            startTime: type === 'event' ? (!allDay && start ? start.toTimeString().slice(0, 5) : '') : (updatedItem.startTime || ''),
-            endTime: type === 'event' ? (!allDay && end ? end.toTimeString().slice(0, 5) : '') : '',
-            allDay: type === 'event' ? allDay : false,
-        };
-
-
-        dispatch({
-            type: type === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK",
-            payload
-        });
-
-        // Forzamos rerender en FullCalendar
-        info.event.setStart(payload.startDate);
-        info.event.setEnd(payload.endDate);
+    // NUEVO: partir ISO en fecha/hora
+    const parseISOToParts = (iso) => {
+      if (!iso) return { date: null, time: null };
+      const [d, t] = String(iso).split('T');
+      return { date: d, time: t ? t.slice(0, 5) : null };
     };
 
-    const handleEventResize = handleEventDrop;
+    // NUEVO: construir body para el backend de eventos
+    // Reemplaza tu toBackendEventBody por este:
+const toBackendEventBody = (evt) => {
+  const allDay = !!evt.allDay;
+
+  // Separar fecha y hora si startDate/endDate ya venían con "T..."
+  const s = parseISOToParts(evt.startDate);
+  const e = parseISOToParts(evt.endDate || evt.startDate);
+
+  const startDate = s.date;                 // "YYYY-MM-DD"
+  const endDate   = e.date;                 // "YYYY-MM-DD" (fallback al start)
+
+  // Si es allDay no enviamos hora. Si no, prioridad:
+  // 1) hora explícita del form (startTime/endTime)
+  // 2) hora que ya venía embebida en startDate/endDate
+  // 3) fallback "00:00" (y para end, fallback a startTime)
+  const startTime = allDay ? '' : (evt.startTime || s.time || '00:00');
+  const endTime   = allDay ? '' : (evt.endTime   || e.time || startTime || '00:00');
+
+  const startIso = startTime ? `${startDate}T${startTime}` : startDate;
+  const endIso   = endTime   ? `${endDate}T${endTime}`     : endDate;
+
+  const calendarIdNum = Number(evt.calendarId || defaultCalendarId);
+  const cal = store.calendar.find(c => Number(c.id) === calendarIdNum);
+  const safeColor = (evt.color ?? cal?.color ?? "");
+
+  return {
+    title: evt.title?.trim(),
+    calendar_id: calendarIdNum,
+    start_date: startIso,
+    end_date: endIso,
+    all_day: allDay,
+    description: (evt.description ?? ""), // nunca null
+    color: (safeColor ?? ""),             // nunca null
+  };
+};
+
+
+    // NUEVO: normalizar respuesta del backend -> shape del store
+    const normalizeEventFromServer = (server) => {
+      const s = String(server.start_date || "");
+      const e = String(server.end_date || "");
+      const { date: sDate, time: sTime } = parseISOToParts(s);
+      const { date: eDate, time: eTime } = parseISOToParts(e);
+
+      return {
+        id: String(server.id),
+        type: "event",
+        title: server.title,
+        calendarId: server.calendar_id,
+        startDate: sDate || null,
+        endDate: eDate || sDate || null,
+        startTime: server.all_day ? "" : (sTime || ""),
+        endTime:   server.all_day ? "" : (eTime || ""),
+        allDay: !!server.all_day,
+        description: server.description || "",
+        color: server.color || "",
+      };
+    };
+
+    
+    // --- Drag & Resize ---
+    // MODIFICADO: al mover/redimensionar EVENTO, persiste en backend
+    const handleEventDrop = async (info) => {
+  const { id, start, end, allDay } = info.event;
+  const type = info.event.extendedProps.type;
+
+  const updatedItem = type === 'event'
+    ? store.events.find(e => String(e.id) === String(id))
+    : store.tasks.find(t => String(t.id) === String(id));
+
+  if (!updatedItem) return;
+
+  const payload = {
+    ...updatedItem,
+    startDate: getLocalDateString(start),
+    endDate: type === 'event'
+      ? (end ? getLocalDateString(end) : getLocalDateString(start))
+      : undefined,
+    startTime: type === 'event'
+      ? (!allDay && start ? start.toTimeString().slice(0, 5) : '')
+      : (updatedItem.startTime || ''), // si tu tarea traía hora opcional, la conservamos
+    endTime: type === 'event'
+      ? (!allDay && end ? end.toTimeString().slice(0, 5) : '')
+      : '',
+    allDay: type === 'event' ? allDay : false,
+  };
+
+  // Optimistic UI
+  dispatch({
+    type: type === 'event' ? "UPDATE_EVENT" : "UPDATE_TASK",
+    payload
+  });
+
+  // 🔽🔽🔽 NUEVO: persistencia para tareas 🔽🔽🔽
+  if (type === 'task') {
+    const userId = getUserId({ storeUser: store.user });
+    if (userId) {
+      // ISO para backend: si la tarea tenía hora, la usamos, si no, 00:00:00
+      const iso = payload.startTime
+        ? `${payload.startDate}T${payload.startTime}:00`
+        : `${payload.startDate}T00:00:00`;
+
+      try {
+        await apiUpdateUserTask(Number(userId), Number(id), { date: iso });
+      } catch (e) {
+        // Rollback si falla
+        dispatch({ type: "UPDATE_TASK", payload: updatedItem });
+        console.error("No se pudo guardar el cambio de día de la tarea:", e);
+        alert(e?.message || "No se pudo guardar la tarea");
+      }
+    }
+  }
+
+  // Persistencia de eventos (ya la tenías)
+  if (type === 'event') {
+    try {
+      const body = toBackendEventBody(payload);
+      const data = await apiUpdateEvent(id, body);
+      const normalized = normalizeEventFromServer(data);
+      dispatch({ type: "UPDATE_EVENT", payload: normalized });
+    } catch (e) {
+      console.error("No se pudo guardar el movimiento del evento:", e);
+      alert(e?.message || "No se pudo guardar el evento");
+    }
+  }
+
+  // Reflejar en FullCalendar
+  info.event.setStart(payload.startDate);
+  info.event.setEnd(payload.endDate);
+};
+
+
+    const handleEventResize = handleEventDrop; 
+
 
     // --- Popover ---
     const handleDateClick = (arg) => {
@@ -209,41 +469,52 @@ const Calendar = () => {
     ];
 
     const renderEventContent = (eventInfo) => {
-        const { type, groupId, done, id, extendedStartTime } = eventInfo.event.extendedProps;
-        const isAllDay = eventInfo.event.allDay;
+  const { type, groupId, done, id, extendedStartTime } = eventInfo.event.extendedProps;
+  const isAllDay = eventInfo.event.allDay;
 
-        if (type === 'task') {
-            const color = taskGroupsColors[groupId]?.border || '#000';
-            const displayTime = !isAllDay && extendedStartTime ? extendedStartTime : '';
-            return (
-                <div className="flex items-center gap-2" style={{ padding: '4px 6px' }}>
-                    <div
-                        onClick={(e) => { e.stopPropagation(); toggleTaskDone(id); }}
-                        style={{
-                            width: '1em', height: '1em', minWidth: '12px', minHeight: '12px',
-                            borderRadius: '50%', border: `0.1em solid ${color}`,
-                            backgroundColor: done ? color : 'transparent',
-                            cursor: 'pointer', flexShrink: 0
-                        }}
-                    />
-                    {displayTime && <span style={{ marginRight: '0.3em', fontWeight: 'bold' }}>{displayTime}</span>}
-                    <span style={{ textDecoration: done ? 'line-through' : 'none' }}>
-                        {eventInfo.event.title}
-                    </span>
-                </div>
-            );
-        } else {
-            const startTimeDisplay = !isAllDay && eventInfo.event.start
-                ? eventInfo.event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-                : '';
-            return (
-                <div style={{ padding: '4px 6px' }}>
-                    {startTimeDisplay && <span style={{ marginRight: '0.3em', fontWeight: 'bold' }}>{startTimeDisplay}</span>}
-                    {eventInfo.event.title}
-                </div>
-            );
-        }
-    };
+  if (type === "task") {
+    const color = taskGroupsColors[groupId]?.border || "#000";
+    const displayTime = !isAllDay && extendedStartTime ? extendedStartTime : "";
+    return (
+      <div className="flex items-center gap-2" style={{ padding: "4px 6px" }}>
+        <div
+          onClick={(e) => { e.stopPropagation(); toggleTaskDone(id); }}
+          style={{
+            width: "1em", height: "1em", minWidth: "12px", minHeight: "12px",
+            borderRadius: "50%", border: `0.1em solid ${color}`,
+            backgroundColor: done ? color : "transparent",
+            cursor: "pointer", flexShrink: 0
+          }}
+        />
+        {displayTime && <span style={{ marginRight: "0.3em", fontWeight: "bold" }}>{displayTime}</span>}
+        <span style={{ textDecoration: done ? "line-through" : "none" }}>
+          {eventInfo.event.title}
+        </span>
+      </div>
+    );
+  }
+
+  // === EVENTO (con horas de inicio–fin) ===
+  const startStr = !isAllDay
+    ? (eventInfo.event.start ? formatTime(eventInfo.event.start) : (eventInfo.event.extendedProps.startTime || ""))
+    : "";
+
+  const endStr = !isAllDay
+    ? (eventInfo.event.end ? formatTime(eventInfo.event.end) : (eventInfo.event.extendedProps.endTime || ""))
+    : "";
+
+  return (
+    <div style={{ padding: "4px 6px" }}>
+      {startStr && (
+        <span style={{ marginRight: "0.3em", fontWeight: "bold" }}>
+          {endStr ? `${startStr}–${endStr}` : startStr}
+        </span>
+      )}
+      {eventInfo.event.title}
+    </div>
+  );
+};
+
 
     return (
         <div>
