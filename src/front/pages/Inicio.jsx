@@ -108,7 +108,7 @@ export const Inicio = () => {
             <div
                 key={`${item.type}-${item.id}`}
                 className={`item ${item.type}`}
-                style={item.type === "event" ? { backgroundColor: `${color}30`, color: color } : { color: color }}
+                style={item.type === "event" ? { backgroundColor: `${color}30`, color: color } : {borderRadius:"16px", color: color }}
             >
                 {item.type === "task" && (
                     <div
@@ -159,18 +159,18 @@ export const Inicio = () => {
                 <div className="d-none d-lg-block col-lg"></div>
 
                 {/* Calendario */}
-                <div className="col-12 col-lg-7 p-3 rounded card calendar-container m-3">
+                <div className="col-12 col-lg-7 p-3 rounded my-card calendar-container m-3">
                     <Calendar />
                 </div>
 
                 {/* Panel de tareas */}
                 <div className="col-12 col-lg-3 p-3 m-3">
-                    <div className="card p-3 mb-3">
+                    <div className="p-3 mb-3 my-card">
                         <section className="mb-1 font-bold">HOY</section>
                         {todayItems.length === 0 ? <p>No hay tareas ni eventos</p> : todayItems.map(renderFullCalendarStyle)}
                     </div>
 
-                    <div className="card p-3 mb-3">
+                    <div className="p-3 mb-3 my-card">
                         <section className="mb-1 font-bold">ESTA SEMANA</section>
                         {weekItems.length === 0 ? (
                             <p>No hay tareas ni eventos</p>
@@ -200,7 +200,7 @@ export const Inicio = () => {
                         )}
                     </div>
 
-                    <div className="card p-3">
+                    <div className=" p-3 my-card">
                         <section className="mb-1 font-bold">SIN FECHA</section>
                         {noDateTasks.length === 0 ? <p>No hay tareas</p> : noDateTasks.map(renderFullCalendarStyle)}
                     </div>

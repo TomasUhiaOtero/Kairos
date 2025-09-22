@@ -598,12 +598,29 @@ const Calendar = () => {
               done: item.done ?? false,
               ...rest
             },
+            
             display: 'block',
             startEditable: true,
             durationEditable: type === 'event',
             editable: true,
           };
         })}
+        eventDidMount={(info) => {
+    if (info.event.extendedProps.type === "task") {
+      // Aplica borde y fondo al <a>
+      info.el.style.borderRadius = "16px";
+      info.el.style.overflow = "hidden";
+      info.el.style.backgroundColor = "#fff"; // o rgba si quieres semitransparente
+      info.el.style.border = `1px solid ${info.event.extendedProps.groupColor || '#5a8770'}`;
+
+      // También aplica a fc-event-main para que el contenido respete el borde
+      const main = info.el.querySelector('.fc-event-main');
+      if (main) {
+        main.style.borderRadius = "16px";
+        main.style.overflow = "hidden";
+      }
+    }
+  }}
         displayEventTime
         eventContent={renderEventContent}
         dateClick={handleDateClick}
@@ -620,7 +637,7 @@ const Calendar = () => {
       />
 
       {popover && (
-        <div className="popover bs-popover-top show position-absolute popover-form"
+        <div className="popover bs-popover-top show position-absolute popover-form form-appear bg-white/30 backdrop-blur-md p-6 rounded-lg shadow-lg p-0"
           style={{ top: popover.y, left: popover.x, zIndex: 2000, minWidth: 320, maxWidth: 500, width: 'auto' }}
         >
           <div className="popover-arrow"></div>

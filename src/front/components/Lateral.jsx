@@ -116,7 +116,7 @@ export const Lateral = ({ onClose }) => {
     };
 
     return (
-        <div className="fixed inset-y-0 right-0 w-80 bg-white/30 backdrop-blur-md p-6 rounded-lg shadow-lg flex flex-col z-50">
+        <div className="lat fixed inset-y-0 right-0 w-80 bg-white/30 backdrop-blur-md p-6 rounded-lg shadow-lg flex flex-col z-50">
             {/* Header */}
             <div className="flex items-center justify-between pb-2 mb-4">
                 <div className="flex items-center space-x-3">
