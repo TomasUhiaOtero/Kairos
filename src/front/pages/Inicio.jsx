@@ -8,52 +8,52 @@ export const Inicio = () => {
     const { store, dispatch } = useGlobalReducer();
 
     useEffect(() => {
-  const getData = async () => {
-    // Calendarios
-    const listCalendar = await apiListCalendars();
+        const getData = async () => {
+            // Calendarios
+            const listCalendar = await apiListCalendars();
 
-    // Eventos (⬅️ NUEVO)
-    const eventsRaw = await apiListEvents();
-    const events = Array.isArray(eventsRaw) ? eventsRaw.map(normalizeEventFromServer) : [];
+            // Eventos (⬅️ NUEVO)
+            const eventsRaw = await apiListEvents();
+            const events = Array.isArray(eventsRaw) ? eventsRaw.map(normalizeEventFromServer) : [];
 
-    // Enviar ambos en el mismo dispatch (⬅️ CLAVE: no dejes events como [])
-    dispatch({
-      type: "SET_CALENDARS",
-      payload: { calendars: listCalendar, events },
-    });
+            // Enviar ambos en el mismo dispatch (⬅️ CLAVE: no dejes events como [])
+            dispatch({
+                type: "SET_CALENDARS",
+                payload: { calendars: listCalendar, events },
+            });
 
-    // Obtener userId
-    const userId = getUserId({ storeUser: store.user });
-    if (!userId) {
-      console.warn("No hay userId: no se cargarán grupos/tareas del usuario.");
-      dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: [], tasks: [] } });
-      return;
-    }
+            // Obtener userId
+            const userId = getUserId({ storeUser: store.user });
+            if (!userId) {
+                console.warn("No hay userId: no se cargarán grupos/tareas del usuario.");
+                dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: [], tasks: [] } });
+                return;
+            }
 
-    // Grupos
-    const listTaskGroup = await apiListUserTaskGroups(userId);
-    dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: listTaskGroup, tasks: [] } });
+            // Grupos
+            const listTaskGroup = await apiListUserTaskGroups(userId);
+            dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: listTaskGroup, tasks: [] } });
 
-    // Tareas (igual que tenías)
-    const base = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
-    const token = localStorage.getItem("token");
-    const headers = { Authorization: token ? `Bearer ${token}` : undefined, Accept: "application/json" };
-    const resp = await fetch(`${base}/api/users/${userId}/tasks`, { headers });
-    const tasks = resp.ok ? await resp.json() : [];
-    const normalizedTasks = tasks.map(t => ({
-      id: t.id,
-      type: "task",
-      title: t.title,
-      groupId: t.task_group_id,
-      done: !!t.status,
-      startDate: t.date ? String(t.date).slice(0, 10) : null,
-    }));
-    dispatch({ type: "SET_TASKS", payload: normalizedTasks });
-  };
+            // Tareas (igual que tenías)
+            const base = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
+            const token = localStorage.getItem("token");
+            const headers = { Authorization: token ? `Bearer ${token}` : undefined, Accept: "application/json" };
+            const resp = await fetch(`${base}/api/users/${userId}/tasks`, { headers });
+            const tasks = resp.ok ? await resp.json() : [];
+            const normalizedTasks = tasks.map(t => ({
+                id: t.id,
+                type: "task",
+                title: t.title,
+                groupId: t.task_group_id,
+                done: !!t.status,
+                startDate: t.date ? String(t.date).slice(0, 10) : null,
+            }));
+            dispatch({ type: "SET_TASKS", payload: normalizedTasks });
+        };
 
-  getData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+        getData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
 
 
@@ -127,84 +127,90 @@ export const Inicio = () => {
     };
 
     // helper para partir ISO en fecha/hora (p.e. "2025-09-22T10:30:00")
-const parseISOToParts = (iso) => {
-  if (!iso) return { date: null, time: null };
-  const [d, t] = String(iso).split("T");
-  return { date: d || null, time: t ? t.slice(0, 5) : null };
-};
+    const parseISOToParts = (iso) => {
+        if (!iso) return { date: null, time: null };
+        const [d, t] = String(iso).split("T");
+        return { date: d || null, time: t ? t.slice(0, 5) : null };
+    };
 
-const normalizeEventFromServer = (s) => {
-  const { date: sDate, time: sTime } = parseISOToParts(s.start_date);
-  const { date: eDate, time: eTime } = parseISOToParts(s.end_date);
-  return {
-    id: String(s.id),
-    type: "event",
-    title: s.title,
-    calendarId: s.calendar_id,
-    startDate: sDate || null,
-    endDate: eDate || sDate || null,
-    startTime: s.all_day ? "" : (sTime || ""),
-    endTime:   s.all_day ? "" : (eTime || ""),
-    allDay: !!s.all_day,
-    description: s.description || "",
-    color: s.color || "",
-  };
-};
+    const normalizeEventFromServer = (s) => {
+        const { date: sDate, time: sTime } = parseISOToParts(s.start_date);
+        const { date: eDate, time: eTime } = parseISOToParts(s.end_date);
+        return {
+            id: String(s.id),
+            type: "event",
+            title: s.title,
+            calendarId: s.calendar_id,
+            startDate: sDate || null,
+            endDate: eDate || sDate || null,
+            startTime: s.all_day ? "" : (sTime || ""),
+            endTime: s.all_day ? "" : (eTime || ""),
+            allDay: !!s.all_day,
+            description: s.description || "",
+            color: s.color || "",
+        };
+    };
 
 
     return (
-        <div className="row h-100">
-            <div className="col"></div>
+        <div className="container-fluid">
+            <div className="row">
+                {/* Columna vacía solo en pantallas grandes */}
+                <div className="d-none d-lg-block col-lg"></div>
 
-            <div className="col-7 p-3 rounded card calendar-container">
-                <Calendar />
+                {/* Calendario */}
+                <div className="col-12 col-lg-7 p-3 rounded card calendar-container m-3">
+                    <Calendar />
+                </div>
+
+                {/* Panel de tareas */}
+                <div className="col-12 col-lg-3 p-3 m-3">
+                    <div className="card p-3 mb-3">
+                        <section className="mb-1 font-bold">HOY</section>
+                        {todayItems.length === 0 ? <p>No hay tareas ni eventos</p> : todayItems.map(renderFullCalendarStyle)}
+                    </div>
+
+                    <div className="card p-3 mb-3">
+                        <section className="mb-1 font-bold">ESTA SEMANA</section>
+                        {weekItems.length === 0 ? (
+                            <p>No hay tareas ni eventos</p>
+                        ) : (
+                            Object.entries(
+                                weekItems.reduce((acc, item) => {
+                                    const key = item._date.toISOString().split("T")[0];
+                                    if (!acc[key]) acc[key] = [];
+                                    acc[key].push(item);
+                                    return acc;
+                                }, {})
+                            ).map(([dateStr, items]) => {
+                                const date = new Date(dateStr);
+                                const formattedDate = date.toLocaleDateString("es-ES", {
+                                    weekday: "long",
+                                    day: "numeric",
+                                    month: "long",
+                                });
+
+                                return (
+                                    <div key={dateStr} className="mb-3">
+                                        <div className="font-semibold mb-2">{formattedDate}</div>
+                                        {items.map(renderFullCalendarStyle)}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    <div className="card p-3">
+                        <section className="mb-1 font-bold">SIN FECHA</section>
+                        {noDateTasks.length === 0 ? <p>No hay tareas</p> : noDateTasks.map(renderFullCalendarStyle)}
+                    </div>
+                </div>
+
+                {/* Columna vacía solo en pantallas grandes */}
+                <div className="d-none d-lg-block col-lg"></div>
             </div>
-
-            <div className="col-3 p-3">
-                <section className="mb-1 font-bold">HOY</section>
-                <div className="card p-3 mb-3">
-                    {todayItems.length === 0 ? <p>No hay tareas ni eventos</p> : todayItems.map(renderFullCalendarStyle)}
-                </div>
-
-                <section className="mb-1 font-bold">ESTA SEMANA</section>
-                <div className="card p-3 mb-3">
-                    {weekItems.length === 0 ? (
-                        <p>No hay tareas ni eventos</p>
-                    ) : (
-                        // Agrupar items por fecha
-                        Object.entries(
-                            weekItems.reduce((acc, item) => {
-                                const key = item._date.toISOString().split("T")[0]; // 'YYYY-MM-DD'
-                                if (!acc[key]) acc[key] = [];
-                                acc[key].push(item);
-                                return acc;
-                            }, {})
-                        ).map(([dateStr, items]) => {
-                            const date = new Date(dateStr);
-                            const formattedDate = date.toLocaleDateString("es-ES", {
-                                weekday: "long",
-                                day: "numeric",
-                                month: "long",
-                            });
-
-                            return (
-                                <div key={dateStr} className="mb-3">
-                                    <div className="font-semibold mb-2">{formattedDate}</div>
-                                    {items.map(renderFullCalendarStyle)}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-
-                <section className="mb-1 font-bold">SIN FECHA</section>
-                <div className="card p-3">
-                    {noDateTasks.length === 0 ? <p>No hay tareas</p> : noDateTasks.map(renderFullCalendarStyle)}
-                </div>
-            </div>
-
-            <div className="col"></div>
         </div>
+
     );
 };
 

@@ -1,6 +1,7 @@
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
 import { apiCreateCalendar, apiCreateTaskGroup, apiUpdateCalendar, apiUpdateTaskGroup, apiDeleteCalendar, apiDeleteTaskGroup } from "../lib/api.js"
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 export const Lateral = ({ onClose }) => {
     const { store, dispatch } = useGlobalReducer()
@@ -33,57 +34,57 @@ export const Lateral = ({ onClose }) => {
 
     // Guardar calendario (crear o editar)
     const handleSubmitCalendar = async (e) => {
-  e.preventDefault();
-  if (!title) return;
+        e.preventDefault();
+        if (!title) return;
 
-  try {
-    if (editingId !== null && editingType === "calendar") {
-      // EDITAR
-      const updated = await apiUpdateCalendar({ editingId, title, color });
-      dispatch({
-        type: "UPDATE_CALENDAR",
-        payload: updated, // ⬅️ usar lo que devuelve el backend
-      });
-    } else {
-      // CREAR
-      const created = await apiCreateCalendar({ title, color });
-      dispatch({
-        type: "ADD_CALENDAR",
-        payload: created, // ⬅️ así guardas {id, title, color}
-      });
-    }
-    resetForm();
-  } catch (err) {
-    console.error("Error guardando calendario:", err);
-  }
-};
+        try {
+            if (editingId !== null && editingType === "calendar") {
+                // EDITAR
+                const updated = await apiUpdateCalendar({ editingId, title, color });
+                dispatch({
+                    type: "UPDATE_CALENDAR",
+                    payload: updated, // ⬅️ usar lo que devuelve el backend
+                });
+            } else {
+                // CREAR
+                const created = await apiCreateCalendar({ title, color });
+                dispatch({
+                    type: "ADD_CALENDAR",
+                    payload: created, // ⬅️ así guardas {id, title, color}
+                });
+            }
+            resetForm();
+        } catch (err) {
+            console.error("Error guardando calendario:", err);
+        }
+    };
 
     // Guardar grupo de tareas (crear o editar)
-   const handleSubmitTask = async (e) => {
-  e.preventDefault();
-  if (!title) return;
+    const handleSubmitTask = async (e) => {
+        e.preventDefault();
+        if (!title) return;
 
-  try {
-    if (editingId !== null && editingType === "task") {
-      // EDITAR
-      const updated = await apiUpdateTaskGroup({ id: editingId, title, color });
-      dispatch({
-        type: "UPDATE_TASKGROUP",
-        payload: updated, // ⬅️ respuesta del backend (con id)
-      });
-    } else {
-      // CREAR
-      const created = await apiCreateTaskGroup({ title, color });
-      dispatch({
-        type: "ADD_TASKGROUP",
-        payload: created, // ⬅️ ya trae id
-      });
-    }
-    resetForm();
-  } catch (err) {
-    console.error("Error guardando grupo de tareas:", err);
-  }
-};
+        try {
+            if (editingId !== null && editingType === "task") {
+                // EDITAR
+                const updated = await apiUpdateTaskGroup({ id: editingId, title, color });
+                dispatch({
+                    type: "UPDATE_TASKGROUP",
+                    payload: updated, // ⬅️ respuesta del backend (con id)
+                });
+            } else {
+                // CREAR
+                const created = await apiCreateTaskGroup({ title, color });
+                dispatch({
+                    type: "ADD_TASKGROUP",
+                    payload: created, // ⬅️ ya trae id
+                });
+            }
+            resetForm();
+        } catch (err) {
+            console.error("Error guardando grupo de tareas:", err);
+        }
+    };
 
     // Editar item
     const handleEdit = (item, type) => {
@@ -99,27 +100,27 @@ export const Lateral = ({ onClose }) => {
     const handleDelete = async (item, type) => {
         try {
             if (type === "calendar") {
-            // 1) Backend
-            await apiDeleteCalendar(item.id);
-            // 2) Store
-            dispatch({ type: "DELETE_CALENDAR", payload: { id: item.id } });
+                // 1) Backend
+                await apiDeleteCalendar(item.id);
+                // 2) Store
+                dispatch({ type: "DELETE_CALENDAR", payload: { id: item.id } });
             } else {
-            await apiDeleteTaskGroup(item.id);
-            dispatch({ type: "DELETE_TASKGROUP", payload: { id: item.id } });
-        }
-      } catch (err) {
+                await apiDeleteTaskGroup(item.id);
+                dispatch({ type: "DELETE_TASKGROUP", payload: { id: item.id } });
+            }
+        } catch (err) {
             console.error("Error eliminando:", err);
             // aquí puedes mostrar un toast/alert si usas alguno
         }
     };
-
+    
     return (
         <div className="fixed inset-y-0 right-0 w-80 bg-gray-50 shadow-xl border-l border-gray-200 z-50">
             {/* Header */}
             <div className="flex items-center justify-between p-4 bg-white border-b">
                 <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                    <span className="font-medium text-gray-900">Usuario</span>
+                    <span className="font-medium text-gray-900"></span>
                 </div>
                 <div className="flex items-center space-x-2">
                     <button className="p-1 text-gray-400 hover:text-gray-600" onClick={onClose}>✕</button>
@@ -181,6 +182,11 @@ export const Lateral = ({ onClose }) => {
                         ))}
                     </div>
                 </div>
+                <section>
+                    <Link to="/config">Configuracion</Link>
+                    <Link to="/Login">Log out</Link>
+
+                </section>
             </div>
 
             {/* Formulario Crear/Editar Calendario */}

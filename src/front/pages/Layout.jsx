@@ -21,11 +21,14 @@ export const Layout = () => {
     return <Navigate to="/" replace />;
   }
 
+  // ocultar navbar y footer en páginas públicas (login/signup/forgot/reset)
+  const hideNavAndFooter = PUBLIC_PATHS.includes(location.pathname);
+
   return (
     <ScrollToTop>
-      <Navbar />
+      {!hideNavAndFooter && <Navbar />}
       <Outlet />
-      <Footer />
+      {!hideNavAndFooter && <Footer />}
     </ScrollToTop>
   );
 };

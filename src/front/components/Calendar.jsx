@@ -12,7 +12,7 @@ const Calendar = () => {
   const calendarRef = useRef(null);
   const [popover, setPopover] = useState(null);
   const [title, setTitle] = useState('');
-
+const [isCompact, setIsCompact] = useState(window.innerWidth < 640);
   const defaultCalendarId = store.calendar[0]?.id || null;
 
   // helper: HH:mm sin AM/PM
@@ -463,8 +463,37 @@ const Calendar = () => {
     ...store.tasks.map(t => ({ ...t, type: 'task' }))
   ];
 
+    useEffect(() => {
+    const handleResize = () => {
+      setIsCompact(window.innerWidth < 640); // cambia 640 a tu breakpoint deseado
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const renderEventContent = (eventInfo) => {
-    const { type, groupId, done, id, extendedStartTime } = eventInfo.event.extendedProps;
+    const { type, groupId } = eventInfo.event.extendedProps;
+
+    if (isCompact) {
+      const color = type === "task"
+        ? taskGroupsColors[groupId]?.border || "#000"
+        : calendarsColors[eventInfo.event.extendedProps.calendarId]?.background || "#000";
+
+      return (
+        <div
+          style={{
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            backgroundColor: color,
+            margin: "auto",
+          }}
+        />
+      );
+    }
+
+    // --- Render normal (tu código actual) ---
+    const { done, id, extendedStartTime } = eventInfo.event.extendedProps;
     const isAllDay = eventInfo.event.allDay;
 
     if (type === "task") {
@@ -489,7 +518,6 @@ const Calendar = () => {
       );
     }
 
-    // === EVENTO (con horas de inicio–fin) ===
     const startStr = !isAllDay
       ? (eventInfo.event.start ? formatTime(eventInfo.event.start) : (eventInfo.event.extendedProps.startTime || ""))
       : "";
@@ -509,7 +537,6 @@ const Calendar = () => {
       </div>
     );
   };
-
 
   return (
     <div>
@@ -570,9 +597,10 @@ const Calendar = () => {
         dateClick={handleDateClick}
         selectable
         datesSet={updateTitle}
-        height="auto"
+        height="75vh"
         expandRows
         nowIndicator
+        dayMaxEvents={true}
         eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
         eventDrop={handleEventDrop}
         eventResize={handleEventResize}
