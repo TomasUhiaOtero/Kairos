@@ -412,11 +412,11 @@ const Calendar = () => {
 
   const handleEventClick = (clickInfo) => {
     const { type, originalId } = clickInfo.event.extendedProps;
-
+    console.log(originalId);
     const updatedItem = type === 'event'
       ? store.events.find(e => e.id === String(originalId))
-      : store.tasks.find(t => t.id === String(originalId));
-
+      : store.tasks.find(t => t.id === originalId);
+console.log(updatedItem);
     if (!updatedItem) return;
 
     if (type === 'event') {
