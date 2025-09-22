@@ -42,35 +42,18 @@ export default function Tasks({ tasks }) {
         };
 
         (tasks || []).forEach((task) => {
-            let taskStart = task.startDate ? new Date(task.startDate) : null;
-            let taskEnd = task.endDate ? new Date(task.endDate) : null;
-            let singleDate = task.date ? new Date(task.date) : null;
+            if (task.date) {
+                const taskDate = new Date(task.date);
 
-            // Caso 1: Rango de fechas
-            if (taskStart && taskEnd) {
-                if (taskEnd < now && task.status === false) {
+                if (taskDate < now === false) {
                     result.atrasado.push(task);
                 } else {
-                    const formattedDate = formatDate(taskStart);
+                    const formattedDate = formatDate(taskDate);
                     if (!result.conFecha[formattedDate]) {
                         result.conFecha[formattedDate] = [];
                     }
                     result.conFecha[formattedDate].push(task);
                 }
-
-                // Caso 2: Una sola fecha (task.date)
-            } else if (singleDate) {
-                if (singleDate < now && task.status === false) {
-                    result.atrasado.push(task);
-                } else {
-                    const formattedDate = formatDate(singleDate);
-                    if (!result.conFecha[formattedDate]) {
-                        result.conFecha[formattedDate] = [];
-                    }
-                    result.conFecha[formattedDate].push(task);
-                }
-
-                // Caso 3: Sin fecha
             } else {
                 result.sinFecha.push(task);
             }
@@ -81,37 +64,37 @@ export default function Tasks({ tasks }) {
 
     // Acciones conectadas al store
     const updateTask = async (taskId, updateData) => {
-        const prev = store.tasks.find(t => String(t.id) === String(taskId));
-        if (!prev) return;
+      const prev = store.tasks.find(t => String(t.id) === String(taskId));
+      if (!prev) return;
 
-        const userId = getUserId({ storeUser: store.user });
-        if (!userId) {
-            alert("No se pudo identificar al usuario.");
-            return;
-        }
+      const userId = getUserId({ storeUser: store.user });
+      if (!userId) {
+        alert("No se pudo identificar al usuario.");
+        return;
+      }
 
-        // Mapeo front -> backend (done -> status)
-        const body = {};
-        if (updateData.title !== undefined) body.title = updateData.title;
-        if (updateData.done !== undefined) body.status = !!updateData.done;
+      // Mapeo front -> backend (done -> status)
+      const body = {};
+      if (updateData.title !== undefined) body.title = updateData.title;
+      if (updateData.done !== undefined) body.status = !!updateData.done;
 
-        // Optimistic update
+      // Optimistic update
+      dispatch({
+        type: "UPDATE_TASK",
+        payload: { ...prev, ...updateData }
+      });
+
+      try {
+        await apiUpdateUserTask(userId, Number(taskId), body);
+      } catch (e) {
+        // Rollback si falla
         dispatch({
-            type: "UPDATE_TASK",
-            payload: { ...prev, ...updateData }
+          type: "UPDATE_TASK",
+          payload: prev
         });
-
-        try {
-            await apiUpdateUserTask(userId, Number(taskId), body);
-        } catch (e) {
-            // Rollback si falla
-            dispatch({
-                type: "UPDATE_TASK",
-                payload: prev
-            });
-            console.error("No se pudo guardar el cambio de tarea:", e);
-            alert(e?.message || "No se pudo guardar la tarea");
-        }
+        console.error("No se pudo guardar el cambio de tarea:", e);
+        alert(e?.message || "No se pudo guardar la tarea");
+      }
     };
 
     const deleteTask = async (taskId) => {
@@ -120,13 +103,13 @@ export default function Tasks({ tasks }) {
             alert("No se pudo identificar al usuario.");
             return;
         }
-
+    
         const taskToDelete = store.tasks.find(t => String(t.id) === String(taskId));
         if (!taskToDelete) return;
-
+    
         // Optimistic
         dispatch({ type: "DELETE_TASK", payload: taskId });
-
+    
         try {
             await apiDeleteUserTask(Number(userId), Number(taskId));
         } catch (e) {
