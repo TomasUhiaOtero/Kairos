@@ -124,3 +124,7 @@
   border: 1px solid rgba(0, 0, 0, 0.05);
   color: #2d3748;
 }
+.fc .fc-day-today,
+.fc .fc-timegrid-col.fc-day-today {
+  background-color: transparent !important;
+}

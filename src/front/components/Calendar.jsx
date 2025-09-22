@@ -621,6 +621,25 @@ const Calendar = () => {
       }
     }
   }}
+dayCellDidMount={(info) => {
+  if (info.isToday) {
+    const numberEl = info.el.querySelector(".fc-daygrid-day-number, .fc-col-header-cell-cushion");
+    if (numberEl) {
+      numberEl.classList.add(
+        "bg-red-500",
+        "text-white",
+        "rounded-full",
+        "w-7",
+        "h-7",
+        "flex",
+        "items-center",
+        "justify-center",
+        "ms-auto",
+        "font-semibold"
+      );
+    }
+  }
+}}
         displayEventTime
         eventContent={renderEventContent}
         dateClick={handleDateClick}
