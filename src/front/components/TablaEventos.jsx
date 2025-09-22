@@ -1,4 +1,3 @@
-// src/front/components/TablaEventos.jsx
 import React, { useMemo, useState } from "react";
 
 // ---- helpers de formato ----
@@ -18,10 +17,38 @@ const fmtHora = (d) =>
     hour12: false,
   }).format(d);
 
-// Fondo suave a partir de HEX (#RRGGBB)
+// Fondo suave a partir de HEX (#RRGGBB) — mismo alpha que en el calendario ('30')
 const softBg = (hex) => {
-  const base = /^#([0-9a-f]{6})$/i.test(hex || "") ? hex : "#a855f7";
-  return `${base}1A`; // alpha ~10%
+  const base = /^#([0-9a-f]{6})$/i.test(hex || "") ? hex : "#94a3b8";
+  return `${base}30`;
+};
+
+// --- parseo seguro de fechas ---
+const safeParse = (v) => {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const s = String(v);
+  // Solo fecha -> crear Date local en medianoche
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d, 0, 0, 0, 0);
+  }
+  // ISO con hora -> usar Date (se interpreta en local)
+  return new Date(s);
+};
+
+// --- helpers de día local ---
+const atMidnight = (d) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+const localDayKey = (d) => {
+  // clave YYYY-MM-DD en zona local
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${da}`;
 };
 
 // ---- lógica de fechas ----
@@ -46,68 +73,82 @@ const endOfWeek = (d) => {
 };
 
 export default function TablaEventos({ eventos = [] }) {
-  const [filtro, setFiltro] = useState("todos"); // "todos" | "hoy" | "semana"
+  const [filtro, setFiltro] = useState("todos");
   const [open, setOpen] = useState(false);
+
+  // Hoy (solo día)
+  const hoy = useMemo(() => atMidnight(new Date()), []);
+  const semIni = useMemo(() => startOfWeek(new Date()), []);
+  const semFin = useMemo(() => endOfWeek(new Date()), []);
 
   // Normaliza a objetos Date
   const normalizados = useMemo(
     () =>
       (eventos || [])
-        .map((e) => ({
-          ...e,
-          _start: e.start_date instanceof Date ? e.start_date : new Date(e.start_date),
-          _end: e.end_date ? (e.end_date instanceof Date ? e.end_date : new Date(e.end_date)) : null,
-        }))
+        .map((e) => {
+          const _start = safeParse(e.start_date);
+          const _end = e.end_date ? safeParse(e.end_date) : null;
+          return {
+            ...e,
+            _start,
+            _end,
+          };
+        })
         .sort((a, b) => a._start - b._start),
     [eventos]
   );
 
-  const hoy = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-  const semIni = useMemo(() => startOfWeek(new Date()), []);
-  const semFin = useMemo(() => endOfWeek(new Date()), []);
+  // ❗ Oculta eventos de días anteriores (comparación por DÍA local)
+  // Si tiene end, usamos end; si no, usamos start. Comparamos atMidnight.
+  const futuros = useMemo(() => {
+    return normalizados.filter((e) => {
+      const ref = e._end || e._start;
+      if (!ref) return false;
+      return atMidnight(ref) >= hoy; // solo hoy en adelante
+    });
+  }, [normalizados, hoy]);
 
-  // Contadores por apartado
+  // Contadores por apartado (sobre los futuros)
   const counts = useMemo(() => {
-    const total = normalizados.length;
+    const total = futuros.length;
     let today = 0;
     let week = 0;
 
-    for (const e of normalizados) {
+    for (const e of futuros) {
       const s = new Date(e._start);
       if (isSameDay(s, hoy)) today++;
       if (s >= semIni && s <= semFin) week++;
     }
     return { total, today, week };
-  }, [normalizados, hoy, semIni, semFin]);
+  }, [futuros, hoy, semIni, semFin]);
 
-  // Aplica el filtro seleccionado
+  // Aplica el filtro seleccionado (sobre los futuros)
   const eventosFiltrados = useMemo(() => {
     if (filtro === "hoy") {
-      return normalizados.filter((e) => isSameDay(e._start, hoy));
+      return futuros.filter((e) => isSameDay(e._start, hoy));
     }
     if (filtro === "semana") {
-      return normalizados.filter((e) => e._start >= semIni && e._start <= semFin);
+      return futuros.filter((e) => e._start >= semIni && e._start <= semFin);
     }
-    return normalizados; // todos
-  }, [normalizados, filtro, hoy, semIni, semFin]);
+    return futuros; // todos los no pasados
+  }, [futuros, filtro, hoy, semIni, semFin]);
 
-  // Agrupa por día tras filtrar
+  // Agrupa por día tras filtrar — usando clave local (no toISOString)
   const grupos = useMemo(() => {
     const byDay = new Map();
     for (const e of eventosFiltrados) {
-      const key = e._start.toISOString().slice(0, 10);
+      const key = localDayKey(e._start); // clave local YYYY-MM-DD
       if (!byDay.has(key)) byDay.set(key, []);
       byDay.get(key).push(e);
     }
-    return Array.from(byDay.entries()).map(([k, list]) => ({
-      key: k,
-      date: new Date(k),
-      list,
-    }));
+    return Array.from(byDay.entries()).map(([k, list]) => {
+      const [y, m, d] = k.split("-").map(Number);
+      return {
+        key: k,
+        date: new Date(y, m - 1, d, 0, 0, 0, 0),
+        list,
+      };
+    });
   }, [eventosFiltrados]);
 
   return (
@@ -171,13 +212,24 @@ export default function TablaEventos({ eventos = [] }) {
 
               <div className="space-y-3">
                 {list.map((e) => {
-                  const color = /^#([0-9a-f]{6})$/i.test(e.color || "") ? e.color : "#a855f7";
+                  const color =
+                    /^#([0-9a-f]{6})$/i.test(e.color || "")
+                      ? e.color
+                      : "#94a3b8";
+                  const isAllDay = !!e.all_day;
                   return (
-                    <div key={e.id} className="grid grid-cols-[60px_2px_1fr] items-start">
+                    <div
+                      key={e.id}
+                      className="grid grid-cols-[60px_2px_1fr] items-start"
+                    >
                       {/* Hora */}
                       <div className="text-[11px] leading-tight text-slate-700 text-right pr-1">
-                        <div className="font-medium">{fmtHora(e._start)}</div>
-                        {e._end && <div className="text-slate-400">{fmtHora(e._end)}</div>}
+                        <div className="font-medium">
+                          {isAllDay ? "Todo el día" : fmtHora(e._start)}
+                        </div>
+                        {!isAllDay && e._end && (
+                          <div className="text-slate-400">{fmtHora(e._end)}</div>
+                        )}
                       </div>
 
                       {/* Línea vertical */}
@@ -218,7 +270,11 @@ function ItemFiltro({ etiqueta, badge, activo, onClick }) {
       }`}
     >
       <span>{etiqueta}</span>
-      <span className={`text-[10px] px-2 py-0.5 rounded-full ${activo ? "bg-sky-100" : "bg-slate-100"}`}>
+      <span
+        className={`text-[10px] px-2 py-0.5 rounded-full ${
+          activo ? "bg-sky-100" : "bg-slate-100"
+        }`}
+      >
         {badge}
       </span>
     </button>
