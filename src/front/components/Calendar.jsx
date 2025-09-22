@@ -12,7 +12,7 @@ const Calendar = () => {
   const calendarRef = useRef(null);
   const [popover, setPopover] = useState(null);
   const [title, setTitle] = useState('');
-const [isCompact, setIsCompact] = useState(window.innerWidth < 640);
+  const [isCompact, setIsCompact] = useState(window.innerWidth < 640);
   const defaultCalendarId = store.calendar[0]?.id || null;
 
   // helper: HH:mm sin AM/PM
@@ -105,14 +105,11 @@ const [isCompact, setIsCompact] = useState(window.innerWidth < 640);
 
     const isEvent = item.type === 'event';
 
-    // --- EVENTOS (persistencia real con optimistic UI) ---
     if (isEvent) {
+      // --- Eventos (igual que antes) ---
       const isUpdate = !!item.id;
-
-      // ↪️ ACTUALIZAR
       if (isUpdate) {
         const optimistic = { ...item, id: String(item.id) };
-        // Optimistic
         dispatch({ type: "UPDATE_EVENT", payload: optimistic });
         try {
           const body = toBackendEventBody(optimistic);
@@ -120,7 +117,6 @@ const [isCompact, setIsCompact] = useState(window.innerWidth < 640);
           const normalized = normalizeEventFromServer(data);
           dispatch({ type: "UPDATE_EVENT", payload: normalized });
         } catch (e) {
-          // Rollback a lo que tenías antes
           dispatch({ type: "UPDATE_EVENT", payload: item });
           console.error("Error guardando evento:", e);
           alert(e?.message || "No se pudo guardar el evento");
@@ -129,47 +125,57 @@ const [isCompact, setIsCompact] = useState(window.innerWidth < 640);
         return;
       }
 
-      // ↪️ CREAR
+      // Crear nuevo evento
       const tempId = (Date.now() + Math.random()).toString();
-      const optimistic = {
-        ...item,
-        id: tempId,
-      };
-
-      // 1) Optimistic: lo mostramos ya
+      const optimistic = { ...item, id: tempId };
       dispatch({ type: "ADD_EVENT", payload: optimistic });
-
       try {
-        // 2) Llamada real
         const body = toBackendEventBody(optimistic);
         const data = await apiCreateEvent(body);
         const normalized = normalizeEventFromServer(data);
-
-        // 3) Reemplazar el temporal por el real
         dispatch({ type: "DELETE_EVENT", payload: tempId });
         dispatch({ type: "ADD_EVENT", payload: normalized });
       } catch (e) {
-        // 4) Rollback si falla
         dispatch({ type: "DELETE_EVENT", payload: tempId });
         console.error("Error guardando evento:", e);
         alert(e?.message || "No se pudo guardar el evento");
       }
-
       setPopover(null);
       return;
     }
 
-    // --- TAREAS (igual que ya tenías) ---
-    const formattedItem = {
-      ...item,
-      id: item.id ? String(item.id) : (Date.now() + Math.random()).toString(),
-    };
-    const exists = store.tasks.some(x => String(x.id) === String(formattedItem.id));
-    dispatch({ type: exists ? "UPDATE_TASK" : "ADD_TASK", payload: formattedItem });
+    // --- Tareas ---
+    const taskId = item.originalId ?? item.id; // <--- usar originalId si existe
+    const formattedItem = { ...item, id: String(taskId) };
+    const exists = store.tasks.some(x => String(x.id) === formattedItem.id);
+
+    if (exists) {
+      // Actualizar tarea
+      dispatch({ type: "UPDATE_TASK", payload: formattedItem });
+
+      const userId = getUserId({ storeUser: store.user });
+      if (userId) {
+        const iso = formattedItem.startTime
+          ? `${formattedItem.startDate}T${formattedItem.startTime}:00`
+          : `${formattedItem.startDate}T00:00:00`;
+        try {
+          await apiUpdateUserTask(Number(userId), Number(formattedItem.id), {
+            title: formattedItem.title,
+            date: iso,
+          });
+        } catch (e) {
+          console.error("Error actualizando tarea:", e);
+          alert(e?.message || "No se pudo actualizar la tarea");
+        }
+      }
+    } else {
+      // Crear nueva tarea
+      const tempId = (Date.now() + Math.random()).toString();
+      dispatch({ type: "ADD_TASK", payload: { ...formattedItem, id: tempId } });
+    }
+
     setPopover(null);
   };
-
-
 
 
 
@@ -416,7 +422,7 @@ const [isCompact, setIsCompact] = useState(window.innerWidth < 640);
     const updatedItem = type === 'event'
       ? store.events.find(e => e.id === String(originalId))
       : store.tasks.find(t => t.id === originalId);
-console.log(updatedItem);
+    console.log(updatedItem);
     if (!updatedItem) return;
 
     if (type === 'event') {
@@ -438,7 +444,13 @@ console.log(updatedItem);
       if (x < 0) x = 10;
       if (y < 0) y = rect.bottom + 10;
 
-      setPopover({ x, y, item: updatedItem });
+      setPopover({
+        x, y,
+        item: {
+          ...updatedItem,
+          originalId: updatedItem.id, // <--- importante
+        }
+      });
     }
   };
 
@@ -457,20 +469,20 @@ console.log(updatedItem);
   const goToday = () => { calendarRef.current?.getApi().today(); updateTitle(); };
   const handleViewChange = (e) => { calendarRef.current?.getApi().changeView(e.target.value); updateTitle(); };
 
-  // --- Renderizado ---
   const allItems = [
     ...store.events.map(e => ({ ...e, type: 'event' })),
     ...store.tasks.map(t => ({ ...t, type: 'task' }))
   ];
-
-    useEffect(() => {
+  
+  useEffect(() => {
     const handleResize = () => {
       setIsCompact(window.innerWidth < 640); // cambia 640 a tu breakpoint deseado
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
+  
+  // --- Renderizado ---
   const renderEventContent = (eventInfo) => {
     const { type, groupId } = eventInfo.event.extendedProps;
 
