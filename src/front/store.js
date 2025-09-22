@@ -1,38 +1,135 @@
-export const initialStore=()=>{
-  return{
-    message: null,
-    todos: [
-      {
-        id: 1,
-        title: "Make the bed",
-        background: null,
-      },
-      {
-        id: 2,
-        title: "Do my homework",
-        background: null,
-      }
-    ]
-  }
-}
+// store.js
+
+export const initialStore = () => ({
+  calendar: [], // Lista de calendarios
+  taskGroup: [], // Lista de grupos de tareas
+  events: [], // Eventos individuales asignados a calendarios
+  tasks: [], // Tareas individuales asignadas a grupos
+  completedRecurrentTasks: [], // Instancias completadas de tareas recurrentes
+  user: null, // Usuario logueado
+});
 
 export default function storeReducer(store, action = {}) {
-  switch(action.type){
-    case 'set_hello':
+  switch (action.type) {
+    // CALENDAR
+    case "ADD_CALENDAR":
+      return { ...store, calendar: [...store.calendar, action.payload] };
+
+    case "UPDATE_CALENDAR":
       return {
         ...store,
-        message: action.payload
+        calendar: store.calendar.map((cal) =>
+          cal.id === action.payload.id ? { ...cal, ...action.payload } : cal
+        ),
       };
-      
-    case 'add_task':
 
-      const { id,  color } = action.payload
-
+    case "DELETE_CALENDAR":
       return {
         ...store,
-        todos: store.todos.map((todo) => (todo.id === id ? { ...todo, background: color } : todo))
+        calendar: store.calendar.filter((cal) => cal.id !== action.payload.id),
+        events: store.events.filter(
+          (ev) =>
+            ev.calendarId !== action.payload.id &&
+            ev.calendar_id !== action.payload.id
+        ),
       };
+
+   
+case "SET_CALENDARS":
+  return {
+    ...store,
+    calendar: action.payload.calendars || [],
+    events:
+      action.payload.hasOwnProperty("events")
+        ? (action.payload.events || [])
+        : store.events, // ⬅️ mantiene eventos si no vienen en el payload
+  };
+
+
+    // TASKGROUPS
+    case "ADD_TASKGROUP":
+      return { ...store, taskGroup: [...store.taskGroup, action.payload] };
+
+    case "UPDATE_TASKGROUP":
+      return {
+        ...store,
+        taskGroup: store.taskGroup.map((group) =>
+          group.id === action.payload.id
+            ? { ...group, ...action.payload }
+            : group
+        ),
+      };
+
+    case "DELETE_TASKGROUP":
+      return {
+        ...store,
+        taskGroup: store.taskGroup.filter((g) => g.id !== action.payload.id),
+        tasks: store.tasks.filter(
+          (t) =>
+            t.groupId !== action.payload.id &&
+            t.task_group_id !== action.payload.id
+        ),
+      };
+
+    case "SET_TASKGROUPS":
+      return {
+        ...store,
+        taskGroup: action.payload.taskgroup || [],
+        tasks: action.payload.tasks || [],
+      };
+
+    // EVENTS
+    case "ADD_EVENT":
+      return { ...store, events: [...store.events, action.payload] };
+
+    case "UPDATE_EVENT":
+      return {
+        ...store,
+        events: store.events.map((event) =>
+          event.id === action.payload.id
+            ? { ...event, ...action.payload }
+            : event
+        ),
+      };
+
+    case "DELETE_EVENT":
+      return {
+        ...store,
+        events: store.events.filter((ev) => ev.id !== action.payload),
+      };
+
+    // TASKS
+    case "ADD_TASK":
+      return { ...store, tasks: [...store.tasks, action.payload] };
+
+    case "UPDATE_TASK":
+      return {
+        ...store,
+        tasks: store.tasks.map((task) =>
+          task.id === action.payload.id ? { ...task, ...action.payload } : task
+        ),
+      };
+
+    // **SET_TASKS**: reemplaza la lista completa de tareas
+    case "SET_TASKS":
+      return {
+        ...store,
+        tasks: Array.isArray(action.payload)
+          ? action.payload
+          : action.payload?.tasks || [],
+      };
+
+    case "DELETE_TASK":
+      return {
+        ...store,
+        tasks: store.tasks.filter((t) => t.id !== action.payload),
+      };
+
+    // USER
+    case "SET_USER":
+      return { ...store, user: action.payload };
+
     default:
-      throw Error('Unknown action.');
-  }    
+      throw new Error(`Unknown action: ${action.type}`);
+  }
 }
