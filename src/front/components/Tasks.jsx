@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import TasksSection from "./TasksSection";
 import TaskItem from "./TaskItem";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import { apiUpdateUserTask, apiDeleteUserTask, getUserId } from "../lib/api.js";
 
 export default function Tasks({ tasks }) {
     const { store, dispatch } = useGlobalReducer();
@@ -69,21 +70,51 @@ export default function Tasks({ tasks }) {
         });
 
         return result;
-    }, [tasksWithGroupColor]);
-
+    }, [tasks]);
+const getTaskColors = (task) => {
+  const group = taskGroups.find(g => g.id === task.groupId);
+  if (!group) return { background: '#ffffff00', border: '#000000', text: '#000000' };
+  return {
+    background: '#ffffff00',  // transparente
+    border: group.color,      // borde del grupo
+    text: group.color         // texto del grupo
+  };
+};
     // Acciones conectadas al store
-    const updateTask = (taskId, updateData) => {
-        dispatch({
-            type: "UPDATE_TASK",
-            payload: { id: taskId, ...updateData },
-        });
+    const updateTask = async (taskId, updateData) => {
+        const userId = getUserId({ storeUser: store.user });
+        if (!userId) return;
+
+        // Optimistic update
+        dispatch({ type: "UPDATE_TASK", payload: { id: taskId, ...updateData } });
+
+        try {
+            await apiUpdateUserTask(userId, Number(taskId), updateData);
+        } catch (e) {
+            console.error("Error actualizando tarea:", e);
+            alert("No se pudo actualizar la tarea");
+            // rollback si quieres
+        }
     };
 
-    const deleteTask = (taskId) => {
-        dispatch({
-            type: "DELETE_TASK",
-            payload: taskId,
-        });
+    const deleteTask = async (taskId) => {
+        const userId = getUserId({ storeUser: store.user });
+        if (!userId) return;
+
+        // Optimistic delete
+        const taskToDelete = store.tasks.find(t => String(t.id) === String(taskId));
+        dispatch({ type: "DELETE_TASK", payload: taskId });
+
+        try {
+            await apiDeleteUserTask(userId, Number(taskId));
+        } catch (e) {
+            console.error("Error borrando tarea:", e);
+            alert("No se pudo borrar la tarea");
+            // rollback si quieres
+            if (taskToDelete) {
+                dispatch({ type: "ADD_TASK", payload: taskToDelete });
+            }
+        }
     };
 
     // Filtros
@@ -111,195 +142,181 @@ export default function Tasks({ tasks }) {
     };
 
     return (
+      <div className="flex flex-col items-center space-y-6">
 
-        <div className="flex flex-col items-center p-3 border-gray-400 my-card">
+    {/* Encabezado */}
+    <div className="relative w-full max-w-lg flex items-center justify-center">
+        <h1 className="text-2xl font-bold">Tareas</h1>
+        <button
+            onClick={() => setShowFilterPopup(true)}
+            className="absolute right-0 text-sky-600 text-sm hover:text-sky-800 transition-colors"
+        >
+            Filtrar
+        </button>
+    </div>
 
-            {/* Contenedor general */}
-            {/* Encabezado */}
-            <div className="relative w-full max-w-lg mb-4 flex items-center">
-                <h1 className="text-2xl font-bold mx-auto">Tareas</h1>
-                <button
-                    onClick={() => setShowFilterPopup(true)}
-                    className="absolute right-0 top-3 text-sky-600 text-sm hover:text-sky-800 transition-colors"
-                >
-                    Filtrar
-                </button>
-            </div>
-            <div className="w-full max-w-2xl rounded-2xl bg-white p-3 space-y-20">
+    {/* Primer my-card: Tareas, Atrasado y Con Fecha */}
+    <div className="w-full max-w-2xl rounded-2xl bg-white p-4 space-y-6 my-card mt-3">
 
-                {/* Sección Atrasado */}
-                {activeFilters.atrasado && (
-                    <TasksSection title="Atrasado">
-                        {categorizedTasks.atrasado.length > 0 ? (
-                            categorizedTasks.atrasado.map((task) => (
-                                <TaskItem
-                                    key={task.id}
-                                    {...task}
-                                    color={task.color}
-                                    onUpdate={updateTask}
-                                    onDelete={deleteTask}
-                                />
-                            ))
-                        ) : (
-                            <div className="text-gray-400 text-sm p-4">No hay tareas</div>
-                        )}
-                    </TasksSection>
-                )}
+        {/* Sección Atrasado */}
+        {activeFilters.atrasado && (
+            <TasksSection title="Atrasado">
+                {categorizedTasks.atrasado.map((task) => (
+                    <TaskItem
+                        key={task.id}
+                        {...task}
+                        color={taskGroups.find(g => g.id === task.groupId)?.color || '#000000'}
+                        onUpdate={updateTask}
+                        onDelete={deleteTask}
+                    />
+                ))}
+            </TasksSection>
+        )}
 
-                {/* Sección con fecha */}
-                {activeFilters.conFecha &&
-                    Object.entries(categorizedTasks.conFecha).map(([date, taskList]) => (
-                        <TasksSection key={date} title={date}>
-                            {taskList.length > 0 ? (
-                                taskList.map((task) => (
-                                    <TaskItem
-                                        key={task.id}
-                                        {...task}
-                                        color={task.color}
-                                        onUpdate={updateTask}
-                                        onDelete={deleteTask}
-                                    />
-                                ))
-                            ) : (
-                                <div className="text-gray-400 text-sm p-4">No hay tareas</div>
-                            )}
-                        </TasksSection>
+        {/* Sección con fecha */}
+        {activeFilters.conFecha &&
+            Object.entries(categorizedTasks.conFecha).map(([date, taskList]) => (
+                <TasksSection key={date} title={date}>
+                    {taskList.map((task) => (
+                        <TaskItem
+                            key={task.id}
+                            {...task}
+                            color={taskGroups.find(g => g.id === task.groupId)?.color || '#000000'}
+                            onUpdate={updateTask}
+                            onDelete={deleteTask}
+                        />
                     ))}
+                </TasksSection>
+            ))}
+    </div>
 
-                {/* Sección Sin fecha */}
-                {activeFilters.sinFecha && (
-                    <TasksSection title="Sin fecha">
-                        {categorizedTasks.sinFecha.length > 0 ? (
-                            categorizedTasks.sinFecha.map((task) => (
-                                <TaskItem
-                                    key={task.id}
-                                    {...task}
-                                    color={task.color}
-                                    onUpdate={updateTask}
-                                    onDelete={deleteTask}
-                                />
-                            ))
-                        ) : (
-                            <div className="text-gray-400 text-sm p-4">No hay tareas</div>
-                        )}
-                    </TasksSection>
+    {/* Segundo my-card: Sin Fecha */}
+    {activeFilters.sinFecha && (
+        <div className="w-full max-w-2xl rounded-2xl bg-white p-4 space-y-6 my-card">
+            <TasksSection title="Sin fecha">
+                {categorizedTasks.sinFecha.length > 0 ? (
+                    categorizedTasks.sinFecha.map((task) => (
+                        <TaskItem
+                            key={task.id}
+                            {...task}
+                            color={taskGroups.find(g => g.id === task.groupId)?.color || '#000000'}
+                            onUpdate={updateTask}
+                            onDelete={deleteTask}
+                        />
+                    ))
+                ) : (
+                    <div className="text-gray-400 text-sm p-4 text-center">No hay tareas</div>
                 )}
+            </TasksSection>
+        </div>
+    )}
 
-                {/* Mensaje cuando no hay filtros activos */}
-                {!activeFilters.atrasado &&
-                    !activeFilters.conFecha &&
-                    !activeFilters.sinFecha && (
-                        <div className="text-center text-gray-400 py-8">
-                            <p className="text-lg">No hay filtros seleccionados</p>
-                            <p className="text-sm">Usa el botón "Filtrar" para mostrar tareas</p>
-                        </div>
-                    )}
+    {/* Mensaje cuando no hay filtros activos */}
+    {!activeFilters.atrasado &&
+        !activeFilters.conFecha &&
+        !activeFilters.sinFecha && (
+            <div className="text-center text-gray-400 py-8">
+                <p className="text-lg">No hay filtros seleccionados</p>
+                <p className="text-sm">Usa el botón "Filtrar" para mostrar tareas</p>
             </div>
+        )}
 
-            {/* Popup de Filtros */}
-            {showFilterPopup && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-semibold text-gray-800">Filtrar Tareas</h3>
-                            <button
-                                onClick={() => setShowFilterPopup(false)}
-                                className="text-gray-400 hover:text-gray-600 text-xl"
-                            >
-                                ×
-                            </button>
-                        </div>
+    {/* Popup de Filtros */}
+    {showFilterPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-6">
 
-                        <div className="space-y-4">
-                            <label className="flex items-center space-x-3 cursor-pointer">
+                <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-800">Filtrar Tareas</h3>
+                    <button
+                        onClick={() => setShowFilterPopup(false)}
+                        className="text-gray-400 hover:text-gray-600 text-xl"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div className="space-y-4">
+                    {/* Opciones de filtro */}
+                    {["atrasado", "conFecha", "sinFecha"].map((filter) => (
+                        <label key={filter} className="flex items-center justify-between cursor-pointer">
+                            <div className="flex items-center gap-3">
                                 <input
                                     type="checkbox"
-                                    checked={activeFilters.atrasado}
-                                    onChange={() => toggleFilter("atrasado")}
+                                    checked={activeFilters[filter]}
+                                    onChange={() => toggleFilter(filter)}
                                     className="circular-checkbox text-gray-600 focus:ring-red-500"
                                 />
-                                <span className="text-gray-700">Tareas Atrasadas</span>
-                                <span className="ml-auto text-sm text-gray-500">
-                                    ({categorizedTasks.atrasado.length})
+                                <span className="text-gray-700">
+                                    {filter === "atrasado"
+                                        ? "Tareas Atrasadas"
+                                        : filter === "conFecha"
+                                        ? "Tareas con Fecha"
+                                        : "Tareas sin Fecha"}
                                 </span>
-                            </label>
-
-                            <label className="flex items-center space-x-3 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={activeFilters.conFecha}
-                                    onChange={() => toggleFilter("conFecha")}
-                                    className="circular-checkbox text-gray-600 focus:ring-blue-500"
-                                />
-                                <span className="text-gray-700">Tareas con Fecha</span>
-                                <span className="ml-auto text-sm text-gray-500">
-                                    {Object.values(categorizedTasks.conFecha).flat().length}
-                                </span>
-                            </label>
-
-                            <label className="flex items-center space-x-3 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={activeFilters.sinFecha}
-                                    onChange={() => toggleFilter("sinFecha")}
-                                    className="circular-checkbox text-gray-600 focus:ring-green-500"
-                                />
-                                <span className="text-gray-700">Tareas sin Fecha</span>
-                                <span className="ml-auto text-sm text-gray-500">
-                                    {categorizedTasks.sinFecha.length}
-                                </span>
-                            </label>
-                        </div>
-
-                        <div className="flex space-x-3 mt-6">
-                            <button
-                                onClick={clearAllFilters}
-                                className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                Limpiar Todo
-                            </button>
-                            <button
-                                onClick={selectAllFilters}
-                                className="flex-1 px-4 py-2 text-white bg-sky-600 rounded-lg hover:bg-sky-700 transition-colors"
-                            >
-                                Seleccionar Todo
-                            </button>
-                        </div>
-
-                        <button
-                            onClick={() => setShowFilterPopup(false)}
-                            className="w-full mt-3 px-4 py-2 text-sky-600 font-medium hover:bg-sky-50 rounded-lg transition-colors"
-                        >
-                            Aplicar Filtros
-                        </button>
-                    </div>
+                            </div>
+                            <span className="text-sm text-gray-500">
+                                {filter === "atrasado"
+                                    ? categorizedTasks.atrasado.length
+                                    : filter === "conFecha"
+                                    ? Object.values(categorizedTasks.conFecha).flat().length
+                                    : categorizedTasks.sinFecha.length}
+                            </span>
+                        </label>
+                    ))}
                 </div>
-            )}
 
-            {/* Estilos CSS personalizados */}
-            <style>{`
-                .circular-checkbox {
-                    appearance: none;
-                    -webkit-appearance: none;
-                    -moz-appearance: none;
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    border: 2px solid;
-                    background-color: white;
-                    cursor: pointer;
-                    position: relative;
-                    transition: all 0.2s ease;
-                }
-                
-                .circular-checkbox:checked {
-                    background-color: currentColor;
-                }
-                
-                .circular-checkbox:hover {
-                    transform: scale(1.1);
-                }
-            `}</style>
+                {/* Botones de acción */}
+                <div className="flex gap-3">
+                    <button
+                        onClick={clearAllFilters}
+                        className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                        Limpiar Todo
+                    </button>
+                    <button
+                        onClick={selectAllFilters}
+                        className="flex-1 px-4 py-2 text-white bg-sky-600 rounded-lg hover:bg-sky-700 transition-colors"
+                    >
+                        Seleccionar Todo
+                    </button>
+                </div>
+
+                <button
+                    onClick={() => setShowFilterPopup(false)}
+                    className="w-full px-4 py-2 text-sky-600 font-medium hover:bg-sky-50 rounded-lg transition-colors"
+                >
+                    Aplicar Filtros
+                </button>
+            </div>
         </div>
+    )}
+
+    {/* Estilos CSS personalizados */}
+    <style>{`
+        .circular-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid;
+            background-color: white;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .circular-checkbox:checked {
+            background-color: currentColor;
+        }
+        
+        .circular-checkbox:hover {
+            transform: scale(1.1);
+        }
+    `}</style>
+</div>
+
     );
 }

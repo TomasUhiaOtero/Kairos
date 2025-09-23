@@ -97,9 +97,9 @@ def serve_any_other_file(path):
     return response
 
 
-@app.route('/assets/<path:filename>')
-def serve_assets(filename):
-    return send_from_directory(os.path.join(os.path.dirname(__file__), 'front/assets/img'), filename)
+# @app.route('/assets/<path:filename>')
+# def serve_assets(filename):
+#     return send_from_directory(os.path.join(os.path.dirname(__file__), 'front/assets/img'), filename)
 
 
 if __name__ == '__main__':

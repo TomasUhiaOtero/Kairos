@@ -152,18 +152,16 @@ export default function TablaEventos({ eventos = [] }) {
   }, [eventosFiltrados]);
 
   return (
-    <div className="w-full max-w-[640px] mx-auto">
-      <div className="bg-white rounded-3xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] text-left">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-semibold">Eventos</h1>
+    <div>
+        <div className="relative w-full max-w-lg mb-4 flex items-center">
+          <h1 className="text-2xl font-bold mx-auto">Eventos</h1>
 
           {/* Botón + menú de filtro */}
           <div className="relative">
             <button
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
-              className="text-xs font-medium rounded-lg border px-3 py-1.5 hover:bg-slate-50"
+              className="absolute right-0 top-3 text-sky-600 text-sm hover:text-sky-800 transition-colors"
             >
               Filtrar
             </button>
@@ -201,12 +199,12 @@ export default function TablaEventos({ eventos = [] }) {
             )}
           </div>
         </div>
-
+    <div className="flex flex-col p-3 border-gray-400 my-card">
         {/* Contenido */}
         <div className="space-y-6 px-4 pb-4">
           {grupos.map(({ key, date, list }) => (
             <section key={key} className="space-y-3">
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-md font-medium text-gray-600 mb-2">
                 {fmtFechaCabecera(date)}
               </h2>
 

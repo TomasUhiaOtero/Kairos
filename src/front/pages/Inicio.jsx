@@ -8,6 +8,7 @@ import { apiListUserTaskGroups, apiListCalendars, apiListEvents, getUserId } fro
    Helpers (definidos antes de usarlos)
    ========================= */
 
+
 // partir ISO en fecha/hora
 const parseISOToParts = (iso) => {
   if (!iso) return { date: null, time: null };
@@ -209,7 +210,13 @@ export const Inicio = () => {
     const color = getItemColor(item);
     const displayTime = item.startTime ? item.startTime : "";
 
+
+        getData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    
     return (
+
       <div
         key={`${item.type}-${item.id}`}
         className={`item ${item.type}`}
@@ -245,6 +252,7 @@ export const Inicio = () => {
             onAddItem={handleAddItem}
             onDeleteItem={handleDeleteItem}
           />
+
         </div>
 
         {/* Panel de tareas */}
