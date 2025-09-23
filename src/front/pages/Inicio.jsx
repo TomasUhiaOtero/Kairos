@@ -12,11 +12,11 @@ export const Inicio = () => {
             // Calendarios
             const listCalendar = await apiListCalendars();
 
-            // Eventos (⬅️ NUEVO)
+            // Eventos
             const eventsRaw = await apiListEvents();
             const events = Array.isArray(eventsRaw) ? eventsRaw.map(normalizeEventFromServer) : [];
 
-            // Enviar ambos en el mismo dispatch (⬅️ CLAVE: no dejes events como [])
+            
             dispatch({
                 type: "SET_CALENDARS",
                 payload: { calendars: listCalendar, events },
@@ -34,7 +34,7 @@ export const Inicio = () => {
             const listTaskGroup = await apiListUserTaskGroups(userId);
             dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: listTaskGroup, tasks: [] } });
 
-            // Tareas (igual que tenías)
+            // Tareas 
             const base = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
             const token = localStorage.getItem("token");
             const headers = { Authorization: token ? `Bearer ${token}` : undefined, Accept: "application/json" };
@@ -52,7 +52,7 @@ export const Inicio = () => {
         };
 
         getData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        
     }, []);
 
 
@@ -64,9 +64,8 @@ export const Inicio = () => {
 
     const normalizeDate = (d) => {
         if (!d) return null;
-        const date = new Date(d);
-        date.setHours(0, 0, 0, 0);
-        return date;
+        const date = parseLocalYMD(d);
+        return startOfLocalDay(date);
     };
 
     const tasks = store.tasks.map(t => ({
@@ -126,7 +125,7 @@ export const Inicio = () => {
         );
     };
 
-    // helper para partir ISO en fecha/hora (p.e. "2025-09-22T10:30:00")
+    // helper para partir ISO en fecha/hora 
     const parseISOToParts = (iso) => {
         if (!iso) return { date: null, time: null };
         const [d, t] = String(iso).split("T");
@@ -150,6 +149,33 @@ export const Inicio = () => {
             color: s.color || "",
         };
     };
+    // --- Helpers de fecha en LOCAL (hoisted) ---
+    function isYMD(s) {
+      return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+    }
+
+    function parseLocalYMD(s) {
+        if (!s) return null;
+        if (isYMD(s)) {
+            const [y, m, d] = String(s).split("-").map(Number);
+            return new Date(y, m - 1, d); // 00:00 local
+        } 
+        // si viene ISO con hora, cae al parser nativo
+        return new Date(s);
+    }
+
+    function startOfLocalDay(d) {
+        const x = new Date(d);
+        x.setHours(0, 0, 0, 0);
+        return x;
+    }
+
+    function ymdLocal(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${dd}`; // clave local
+    }
 
 
     return (
@@ -177,7 +203,7 @@ export const Inicio = () => {
                         ) : (
                             Object.entries(
                                 weekItems.reduce((acc, item) => {
-                                    const key = item._date.toISOString().split("T")[0];
+                                    const key = ymdLocal(item._date);
                                     if (!acc[key]) acc[key] = [];
                                     acc[key].push(item);
                                     return acc;
