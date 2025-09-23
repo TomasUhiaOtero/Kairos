@@ -762,7 +762,6 @@ const Calendar = () => {
             info.el.style.overflow = "hidden";
 
             info.el.style.backgroundColor = "#fff";
-            info.el.style.border = `1px solid ${info.event.extendedProps.groupColor || '#5a8770'}`;
 
 
             // También aplica a fc-event-main para que el contenido respete el borde
