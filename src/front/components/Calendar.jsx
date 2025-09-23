@@ -616,7 +616,6 @@ return (
             info.el.style.borderRadius = "16px";
             info.el.style.overflow = "hidden";
             info.el.style.backgroundColor = "#fff"; // o rgba si quieres semitransparente
-            info.el.style.border = `1px solid ${info.event.extendedProps.groupColor || '#5a8770'}`;
 
             // También aplica a fc-event-main para que el contenido respete el borde
             const main = info.el.querySelector('.fc-event-main');
