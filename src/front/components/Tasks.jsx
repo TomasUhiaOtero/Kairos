@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import TasksSection from "./TasksSection";
 import TaskItem from "./TaskItem";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import { apiUpdateUserTask, apiDeleteUserTask, getUserId } from "../lib/api.js";
 
 export default function Tasks({ tasks }) {
     const { store, dispatch } = useGlobalReducer();
@@ -72,18 +73,40 @@ export default function Tasks({ tasks }) {
     }, [tasksWithGroupColor]);
 
     // Acciones conectadas al store
-    const updateTask = (taskId, updateData) => {
-        dispatch({
-            type: "UPDATE_TASK",
-            payload: { id: taskId, ...updateData },
-        });
+    const updateTask = async (taskId, updateData) => {
+        const userId = getUserId({ storeUser: store.user });
+        if (!userId) return;
+
+        // Optimistic update
+        dispatch({ type: "UPDATE_TASK", payload: { id: taskId, ...updateData } });
+
+        try {
+            await apiUpdateUserTask(userId, Number(taskId), updateData);
+        } catch (e) {
+            console.error("Error actualizando tarea:", e);
+            alert("No se pudo actualizar la tarea");
+            // rollback si quieres
+        }
     };
 
-    const deleteTask = (taskId) => {
-        dispatch({
-            type: "DELETE_TASK",
-            payload: taskId,
-        });
+    const deleteTask = async (taskId) => {
+        const userId = getUserId({ storeUser: store.user });
+        if (!userId) return;
+
+        // Optimistic delete
+        const taskToDelete = store.tasks.find(t => String(t.id) === String(taskId));
+        dispatch({ type: "DELETE_TASK", payload: taskId });
+
+        try {
+            await apiDeleteUserTask(userId, Number(taskId));
+        } catch (e) {
+            console.error("Error borrando tarea:", e);
+            alert("No se pudo borrar la tarea");
+            // rollback si quieres
+            if (taskToDelete) {
+                dispatch({ type: "ADD_TASK", payload: taskToDelete });
+            }
+        }
     };
 
     // Filtros
