@@ -211,9 +211,7 @@ export const Inicio = () => {
     const displayTime = item.startTime ? item.startTime : "";
 
 
-        getData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+       
     
     return (
 
