@@ -78,7 +78,7 @@ export default function TaskItem({ id, text, color, repeat, status, onDelete, on
     const handleEdit = () => setIsEditing(true);
 
     return (
-        <div className="relative flex items-center justify-between w-full p-3 border-b border-gray-100 last:border-b-0 group hover:bg-gray-50 transition-colors">
+        <div className="relative flex items-center justify-between w-full border-b border-gray-100 last:border-b-0 group hover:bg-gray-50 transition-colors">
             <div className="flex items-center space-x-3 flex-1">
                 {/* Checkbox */}
                 <button
