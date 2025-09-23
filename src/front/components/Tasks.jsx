@@ -2,12 +2,21 @@ import { useState, useMemo } from "react";
 import TasksSection from "./TasksSection";
 import TaskItem from "./TaskItem";
 import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
-import { apiUpdateUserTask, apiDeleteUserTask, getUserId } from "../lib/api.js";
-
 
 export default function Tasks({ tasks }) {
     const { store, dispatch } = useGlobalReducer();
     const taskGroups = store.taskGroup || [];
+
+    // Combinar tareas con su color de grupo
+    const tasksWithGroupColor = useMemo(() => {
+        return (tasks || []).map(task => {
+            const group = taskGroups.find(g => g.id === task.task_group_id);
+            return {
+                ...task,
+                color: group?.color || '#292929ec'
+            };
+        });
+    }, [tasks, taskGroups]);
 
     // Estado para los filtros
     const [showFilterPopup, setShowFilterPopup] = useState(false);
@@ -24,11 +33,9 @@ export default function Tasks({ tasks }) {
             "enero", "febrero", "marzo", "abril", "mayo", "junio",
             "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
         ];
-
         const dia = dias[date.getDay()];
         const numeroDate = date.getDate();
         const mes = meses[date.getMonth()];
-
         return `${dia}, ${numeroDate} de ${mes}`;
     };
 
@@ -41,11 +48,13 @@ export default function Tasks({ tasks }) {
             sinFecha: [],
         };
 
-        (tasks || []).forEach((task) => {
-            if (task.date) {
-                const taskDate = new Date(task.date);
+        tasksWithGroupColor.forEach((task) => {
+            // Normalizar campo de fecha: date > startDate > endDate
+            const rawDate = task.date || task.startDate || task.endDate || null;
 
-                if (taskDate < now === false) {
+            if (rawDate) {
+                const taskDate = new Date(rawDate);
+                if (taskDate < now) {
                     result.atrasado.push(task);
                 } else {
                     const formattedDate = formatDate(taskDate);
@@ -71,65 +80,19 @@ const getTaskColors = (task) => {
   };
 };
     // Acciones conectadas al store
-    const updateTask = async (taskId, updateData) => {
-      const prev = store.tasks.find(t => String(t.id) === String(taskId));
-      if (!prev) return;
-
-      const userId = getUserId({ storeUser: store.user });
-      if (!userId) {
-        alert("No se pudo identificar al usuario.");
-        return;
-      }
-
-      // Mapeo front -> backend (done -> status)
-      const body = {};
-      if (updateData.title !== undefined) body.title = updateData.title;
-      if (updateData.done !== undefined) body.status = !!updateData.done;
-
-      // Optimistic update
-      dispatch({
-        type: "UPDATE_TASK",
-        payload: { ...prev, ...updateData }
-      });
-
-      try {
-        await apiUpdateUserTask(userId, Number(taskId), body);
-      } catch (e) {
-        // Rollback si falla
+    const updateTask = (taskId, updateData) => {
         dispatch({
-          type: "UPDATE_TASK",
-          payload: prev
+            type: "UPDATE_TASK",
+            payload: { id: taskId, ...updateData },
         });
-        console.error("No se pudo guardar el cambio de tarea:", e);
-        alert(e?.message || "No se pudo guardar la tarea");
-      }
     };
 
-    const deleteTask = async (taskId) => {
-        const userId = getUserId({ storeUser: store.user });
-        if (!userId) {
-            alert("No se pudo identificar al usuario.");
-            return;
-        }
-    
-        const taskToDelete = store.tasks.find(t => String(t.id) === String(taskId));
-        if (!taskToDelete) return;
-    
-        // Optimistic
-        dispatch({ type: "DELETE_TASK", payload: taskId });
-    
-        try {
-            await apiDeleteUserTask(Number(userId), Number(taskId));
-        } catch (e) {
-            // Rollback
-            dispatch({ type: "ADD_TASK", payload: taskToDelete });
-            console.error("Error borrando tarea:", e);
-            alert(e?.message || "No se pudo borrar la tarea");
-        }
+    const deleteTask = (taskId) => {
+        dispatch({
+            type: "DELETE_TASK",
+            payload: taskId,
+        });
     };
-
-
-
 
     // Filtros
     const toggleFilter = (filterType) => {
