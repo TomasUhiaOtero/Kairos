@@ -52,6 +52,25 @@ async function handleJSON(path, options = {}) {
   return data;
 }
 
+// === Helpers para fallbacks de método ===
+async function rawFetchJSON(path, { method = "GET", body, headers = {} } = {}) {
+  const res = await authFetch(path, {
+    method,
+    headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...headers,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch { /* ignore */ }
+  return { res, data };
+}
+
+function isMethodNotAllowed(res, data) {
+  const msg = (data && (data.message || data.error || data.detail || "")) || "";
+  return res.status === 405 || /405/i.test(msg);
+}
 
 // Construir query strings fácilmente
 function buildQuery(params = {}) {
@@ -95,7 +114,7 @@ export function getUserId({ storeUser } = {}) {
   if (parts.length < 1) return null;
 
   try {
-    const payloadStr = atob(parts[0]); // primera parte = JSON
+    const payloadStr = atob(parts[0]); // primera parte = JSON (según tu backend)
     const payload = JSON.parse(payloadStr);
     return payload.user_id ?? payload.id ?? null;
   } catch (err) {
@@ -103,7 +122,6 @@ export function getUserId({ storeUser } = {}) {
     return null;
   }
 }
-
 
 // ============================
 // EVENTS
@@ -164,22 +182,117 @@ export async function apiCreateTaskInGroup(userId, groupId, body) {
   });
 }
 
-// Actualizar una tarea del usuario (usa tus rutas existentes)
+// === Actualizar una tarea del usuario con fallbacks de método ===
+// === Actualizar una tarea del usuario con fallbacks (PRIORIDAD: PUT) ===
 export async function apiUpdateUserTask(userId, taskId, body) {
-  return handleJSON(`/api/users/${userId}/tasks/${taskId}`, {
-    method: "PUT",
-    body: JSON.stringify(body),
-  });
-}
+  const u = encodeURIComponent(String(userId));
+  const t = encodeURIComponent(String(taskId));
 
-// Borrar tarea del usuario (NO toca el grupo)
-export async function apiDeleteUserTask(userId, taskId) {
-    return handleJSON(`/api/users/${userId}/tasks/${taskId}`, {
-        method: "DELETE",
+  // 1) PUT primero (tu backend lo acepta)
+  {
+    const { res, data } = await rawFetchJSON(`/api/users/${u}/tasks/${t}`, {
+      method: "PUT",
+      body,
     });
+    if (res.ok) return data;
+
+    // si responde 500 con mensaje "405..." lo tratamos como método no permitido
+    const looks405 = isMethodNotAllowed(res, data) ||
+      (res.status === 500 && /405/i.test((data?.message || data?.error || data?.detail || "")));
+
+    if (!looks405) {
+      const baseMsg = (data && (data.message || data.error)) || res.statusText || "Request failed";
+      const detail = data && data.detail ? `: ${data.detail}` : "";
+      const err = new Error(`${baseMsg}${detail}`);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+  }
+
+  // 2) PATCH por si en otro despliegue está habilitado
+  {
+    const { res, data } = await rawFetchJSON(`/api/users/${u}/tasks/${t}`, {
+      method: "PATCH",
+      body,
+    });
+    if (res.ok) return data;
+
+    const looks405 = isMethodNotAllowed(res, data) ||
+      (res.status === 500 && /405/i.test((data?.message || data?.error || data?.detail || "")));
+
+    if (!looks405) {
+      const baseMsg = (data && (data.message || data.error)) || res.statusText || "Request failed";
+      const detail = data && data.detail ? `: ${data.detail}` : "";
+      const err = new Error(`${baseMsg}${detail}`);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+  }
+
+  // 3) POST con override -> PUT
+  {
+    const { res, data } = await rawFetchJSON(`/api/users/${u}/tasks/${t}?_method=PUT`, {
+      method: "POST",
+      body,
+      headers: { "X-HTTP-Method-Override": "PUT" },
+    });
+    if (res.ok) return data;
+  }
+
+  // 4) /toggle si solo cambia el status
+  if (Object.prototype.hasOwnProperty.call(body ?? {}, "status")) {
+    const { res, data } = await rawFetchJSON(`/api/users/${u}/tasks/${t}/toggle`, {
+      method: "POST",
+      body: { status: body.status },
+    });
+    if (res.ok) return data;
+  }
+
+  const err = new Error(
+    "No se pudo actualizar la tarea: PUT/PATCH/override/toggle no disponibles."
+  );
+  err.status = 405;
+  throw err;
 }
 
 
+// === Borrar tarea del usuario con fallback de method-override ===
+export async function apiDeleteUserTask(userId, taskId) {
+  const u = encodeURIComponent(String(userId));
+  const t = encodeURIComponent(String(taskId));
+
+  // DELETE directo
+  {
+    const { res, data } = await rawFetchJSON(`/api/users/${u}/tasks/${t}`, { method: "DELETE" });
+    if (res.ok) return data;
+    if (!isMethodNotAllowed(res, data)) {
+      const baseMsg = (data && (data.message || data.error)) || res.statusText || "Request failed";
+      const detail = data && data.detail ? `: ${data.detail}` : "";
+      const err = new Error(`${baseMsg}${detail}`);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+  }
+
+  // POST con override para DELETE
+  {
+    const { res, data } = await rawFetchJSON(`/api/users/${u}/tasks/${t}?_method=DELETE`, {
+      method: "POST",
+      headers: { "X-HTTP-Method-Override": "DELETE" },
+    });
+    if (res.ok) return data;
+
+    const baseMsg = (data && (data.message || data.error)) || res.statusText || "Request failed";
+    const detail = data && data.detail ? `: ${data.detail}` : "";
+    const err = new Error(`${baseMsg}${detail}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+}
 
 // ============================
 // CALENDARS
@@ -238,89 +351,89 @@ export async function apiDeleteTaskGroup(id) {
 }
 
 // ============================
-// Carga inicial 
+// Carga inicial
 // ============================
 export const loadInitialData = async (dispatch, token, storeUser = null) => {
-    const base = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
-    const headers = {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-    };
+  const base = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/json",
+  };
 
-    // ⬇️ función para obtener userId (según tu token no-JWT)
-    const getUserId = ({ storeUser } = {}) => {
-        if (storeUser && (storeUser.id || storeUser.user_id)) {
-            return storeUser.id ?? storeUser.user_id;
-        }
-        let t = localStorage.getItem("token") || sessionStorage.getItem("token");
-        if (!t) return null;
-        if (t.startsWith("Bearer ")) t = t.slice(7);
-        const parts = t.split(".");
-        if (parts.length < 1) return null;
-        try {
-            const payload = JSON.parse(atob(parts[0]));
-            return payload.user_id ?? payload.id ?? null;
-        } catch {
-            return null;
-        }
-    };
-
-    const userId = getUserId({ storeUser });
-
-    const fetchJSON = async (endpoint) => {
-        const res = await fetch(`${base}${endpoint}`, { headers });
-        if (!res.ok) {
-            const txt = await res.text().catch(() => "");
-            throw new Error(`Error ${res.status} en ${endpoint}: ${txt || res.statusText}`);
-        }
-        const ct = res.headers.get("content-type") || "";
-        if (!ct.includes("application/json")) {
-            const txt = await res.text().catch(() => "");
-            throw new Error(`${endpoint} no devolvió JSON: ${txt?.slice(0, 200)}`);
-        }
-        return res.json();
-    };
-
-    try {
-        // Calendarios + Eventos
-        try {
-            const calendars = await fetchJSON("/api/calendars");
-            const events = await fetchJSON("/api/events");
-            dispatch({ type: "SET_CALENDARS", payload: { calendars, events } });
-        } catch (e) {
-            console.warn("No se pudieron cargar calendarios/eventos:", e.message);
-        }
-
-        // Grupos + Tareas (usa TUS endpoints reales)
-        try {
-            if (!userId) {
-                console.warn("No hay userId; omito carga de grupos/tareas.");
-                dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: [], tasks: [] } });
-            } else {
-                const groups = await fetchJSON(`/api/users/${userId}/groups`);
-                const tasksRaw = await fetchJSON(`/api/users/${userId}/tasks`);
-
-                // Normaliza tareas al shape que usa tu UI
-                const tasks = Array.isArray(tasksRaw)
-                    ? tasksRaw.map(t => ({
-                          id: t.id,
-                          type: "task",
-                          title: t.title,
-                          groupId: t.task_group_id,
-                          done: !!t.status,
-                          startDate: t.date ? String(t.date).slice(0, 10) : null,
-                      }))
-                    : [];
-
-                // ⬅️ OJO: el reducer espera 'taskgroup' (no 'groups')
-                dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: groups, tasks } });
-            }
-        } catch (e) {
-            console.warn("No se pudieron cargar grupos/tareas:", e.message);
-            dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: [], tasks: [] } });
-        }
-    } catch (e) {
-        console.error("Error general en loadInitialData:", e);
-        throw e;
+  // ⬇️ función para obtener userId (según tu token no-JWT)
+  const getUserId = ({ storeUser } = {}) => {
+    if (storeUser && (storeUser.id || storeUser.user_id)) {
+      return storeUser.id ?? storeUser.user_id;
     }
+    let t = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!t) return null;
+    if (t.startsWith("Bearer ")) t = t.slice(7);
+    const parts = t.split(".");
+    if (parts.length < 1) return null;
+    try {
+      const payload = JSON.parse(atob(parts[0]));
+      return payload.user_id ?? payload.id ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  const userId = getUserId({ storeUser });
+
+  const fetchJSON = async (endpoint) => {
+    const res = await fetch(`${base}${endpoint}`, { headers });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Error ${res.status} en ${endpoint}: ${txt || res.statusText}`);
+    }
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`${endpoint} no devolvió JSON: ${txt?.slice(0, 200)}`);
+    }
+    return res.json();
+  };
+
+  try {
+    // Calendarios + Eventos
+    try {
+      const calendars = await fetchJSON("/api/calendars");
+      const events = await fetchJSON("/api/events");
+      dispatch({ type: "SET_CALENDARS", payload: { calendars, events } });
+    } catch (e) {
+      console.warn("No se pudieron cargar calendarios/eventos:", e.message);
+    }
+
+    // Grupos + Tareas (usa TUS endpoints reales)
+    try {
+      if (!userId) {
+        console.warn("No hay userId; omito carga de grupos/tareas.");
+        dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: [], tasks: [] } });
+      } else {
+        const groups = await fetchJSON(`/api/users/${userId}/groups`);
+        const tasksRaw = await fetchJSON(`/api/users/${userId}/tasks`);
+
+        // Normaliza tareas al shape que usa tu UI
+        const tasks = Array.isArray(tasksRaw)
+          ? tasksRaw.map(t => ({
+              id: t.id,
+              type: "task",
+              title: t.title,
+              groupId: t.task_group_id,
+              done: !!t.status,
+              startDate: t.date ? String(t.date).slice(0, 10) : null,
+            }))
+          : [];
+
+        // ⬅️ OJO: el reducer espera 'taskgroup' (no 'groups')
+        dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: groups, tasks } });
+      }
+    } catch (e) {
+      console.warn("No se pudieron cargar grupos/tareas:", e.message);
+      dispatch({ type: "SET_TASKGROUPS", payload: { taskgroup: [], tasks: [] } });
+    }
+  } catch (e) {
+    console.error("Error general en loadInitialData:", e);
+    throw e;
+  }
 };

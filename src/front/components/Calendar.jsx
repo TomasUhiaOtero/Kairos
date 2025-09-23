@@ -6,7 +6,16 @@ import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import CreateEvent from './CreateEvent';
 import useGlobalReducer from '../hooks/useGlobalReducer.jsx';
-import { apiUpdateUserTask, apiDeleteUserTask, apiCreateEvent, apiUpdateEvent, apiDeleteEvent, getUserId } from "../lib/api.js";
+import {
+  apiUpdateUserTask,
+  apiDeleteUserTask,
+  apiCreateEvent,
+  apiUpdateEvent,
+  apiDeleteEvent,
+  apiCreateTaskInGroup, // <-- añadido
+  getUserId
+} from "../lib/api.js";
+
 const Calendar = () => {
   const { store, dispatch } = useGlobalReducer();
   const calendarRef = useRef(null);
@@ -18,7 +27,6 @@ const Calendar = () => {
   // helper: HH:mm sin AM/PM
   const formatTime = (d) =>
     d ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
-
 
   // --- Utilidades ---
   const getLocalDateString = (date) => {
@@ -69,7 +77,6 @@ const Calendar = () => {
     };
   };
 
-
   // Pequeño ajuste para evitar undefined en colores
   const getCalendarsColors = () => {
     const obj = {};
@@ -82,7 +89,6 @@ const Calendar = () => {
     });
     return obj;
   };
-
 
   const getTaskGroupsColors = () => {
     const obj = {};
@@ -99,7 +105,7 @@ const Calendar = () => {
   const calendarsColors = getCalendarsColors();
   const taskGroupsColors = getTaskGroupsColors();
 
-  // --- CRUD --- (modificado max para actualixar al momento y no recargar la pajina)
+  // --- CRUD --- (modificado para actualizar al momento sin recargar la página)
   const handleAddItem = async (item) => {
     if (!item.title?.trim()) return;
 
@@ -144,40 +150,135 @@ const Calendar = () => {
       return;
     }
 
-    // --- Tareas ---
-    const taskId = item.originalId ?? item.id; // <--- usar originalId si existe
-    const formattedItem = { ...item, id: String(taskId) };
-    const exists = store.tasks.some(x => String(x.id) === formattedItem.id);
-
-    if (exists) {
-      // Actualizar tarea
-      dispatch({ type: "UPDATE_TASK", payload: formattedItem });
+    // --- TAREAS ---
+    {
+      const taskId = item.originalId ?? item.id;   // id real si viene, si no, el que traiga
+      const formattedItem = { ...item, id: String(taskId) };
+      const exists = store.tasks.some(x => String(x.id) === String(formattedItem.id));
+      const isEditing = item.mode === 'edit' || Boolean(item.originalId);
+      const isTempId = (id) => String(id).includes('-') || Number.isNaN(Number(id));
 
       const userId = getUserId({ storeUser: store.user });
-      if (userId) {
-        const iso = formattedItem.startTime
-          ? `${formattedItem.startDate}T${formattedItem.startTime}:00`
-          : `${formattedItem.startDate}T00:00:00`;
+      if (!userId) {
+        alert("No se pudo identificar al usuario.");
+        setPopover(null);
+        return;
+      }
+
+      // ISO fecha-hora
+      const iso = formattedItem.startTime
+        ? `${formattedItem.startDate}T${formattedItem.startTime}:00`
+        : `${formattedItem.startDate}T00:00:00`;
+
+      // helper: crear tarea en grupo y normalizar payload
+      const createInGroup = async ({ title, groupIdNum, done, dateISO }) => {
+        const group = store.taskGroup.find(g => Number(g.id) === groupIdNum);
+        const safeColor = (group?.color && String(group.color).trim()) || "#000000";
+        const created = await apiCreateTaskInGroup(String(userId), groupIdNum, {
+          title,
+          status: !!done,
+          date: dateISO,
+          color: safeColor,
+        });
+        return {
+          id: String(created.id),
+          type: "task",
+          title: created.title,
+          groupId: created.task_group_id ?? groupIdNum,
+          done: !!created.status,
+          startDate: created.date ? String(created.date).slice(0, 10) : formattedItem.startDate,
+        };
+      };
+
+      // --------- EDITAR / EXISTE ----------
+      if (isEditing || exists) {
+        const prev = store.tasks.find(t => String(t.id) === String(formattedItem.id));
+        const prevGroupId = prev?.groupId;
+        const newGroupId = Number(formattedItem.groupId);
+
+        // id temporal → crear y reemplazar
+        if (isTempId(formattedItem.id)) {
+          dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0,10) } });
+          try {
+            const normalized = await createInGroup({
+              title: formattedItem.title,
+              groupIdNum: newGroupId,
+              done: formattedItem.done,
+              dateISO: iso,
+            });
+            dispatch({ type: "DELETE_TASK", payload: formattedItem.id });
+            dispatch({ type: "ADD_TASK", payload: normalized });
+          } catch (e) {
+            console.error("Error creando tarea desde edición (id temporal):", e);
+            alert(e?.message || "No se pudo guardar la tarea");
+          }
+          setPopover(null);
+          return;
+        }
+
+        // cambió de grupo → mover: crear en nuevo grupo y borrar la antigua
+        if (prev && String(prevGroupId) !== String(newGroupId)) {
+          dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0,10) } });
+          try {
+            const normalized = await createInGroup({
+              title: formattedItem.title,
+              groupIdNum: newGroupId,
+              done: formattedItem.done,
+              dateISO: iso,
+            });
+            dispatch({ type: "ADD_TASK", payload: normalized });
+            await apiDeleteUserTask(String(userId), String(prev.id));
+            dispatch({ type: "DELETE_TASK", payload: prev.id });
+          } catch (e) {
+            console.error("Error moviendo tarea de grupo:", e);
+            alert(e?.message || "No se pudo mover la tarea de grupo");
+          }
+          setPopover(null);
+          return;
+        }
+
+        // mismo grupo → actualizar
+        dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0,10) } });
         try {
-          await apiUpdateUserTask(Number(userId), Number(formattedItem.id), {
+          await apiUpdateUserTask(String(userId), String(formattedItem.id), {
             title: formattedItem.title,
             date: iso,
+            status: formattedItem.done ?? undefined,
           });
         } catch (e) {
           console.error("Error actualizando tarea:", e);
           alert(e?.message || "No se pudo actualizar la tarea");
         }
+
+        setPopover(null);
+        return;
       }
-    } else {
-      // Crear nueva tarea
-      const tempId = (Date.now() + Math.random()).toString();
-      dispatch({ type: "ADD_TASK", payload: { ...formattedItem, id: tempId } });
+
+      // --------- CREAR NUEVA ----------
+      {
+        const tempId = `${Date.now()}-${Math.floor(Math.random()*1e6)}`;
+        const groupIdNum = Number(formattedItem.groupId);
+
+        dispatch({ type: "ADD_TASK", payload: { ...formattedItem, id: tempId } });
+        try {
+          const normalized = await createInGroup({
+            title: formattedItem.title,
+            groupIdNum,
+            done: formattedItem.done,
+            dateISO: iso,
+          });
+          dispatch({ type: "DELETE_TASK", payload: tempId });
+          dispatch({ type: "ADD_TASK", payload: normalized });
+        } catch (e) {
+          dispatch({ type: "DELETE_TASK", payload: tempId });
+          console.error("Error creando tarea:", e);
+          alert(e?.message || "No se pudo crear la tarea");
+        }
+      }
+
+      setPopover(null);
     }
-
-    setPopover(null);
   };
-
-
 
   // MODIFICADO: borrar EVENTO con API + rollback
   const handleDeleteItem = async (itemId, itemType) => {
@@ -201,7 +302,7 @@ const Calendar = () => {
       return;
     }
 
-    // --- TAREA (tu flujo actual)
+    // --- TAREA
     const userId = getUserId({ storeUser: store.user });
     if (!userId) {
       alert("No se pudo identificar al usuario.");
@@ -214,7 +315,7 @@ const Calendar = () => {
     setPopover(null);
 
     try {
-      await apiDeleteUserTask(Number(userId), Number(itemId));
+      await apiDeleteUserTask(String(userId), String(itemId));
     } catch (e) {
       if (taskToDelete) dispatch({ type: "ADD_TASK", payload: taskToDelete });
       console.error("Error borrando tarea:", e);
@@ -222,12 +323,22 @@ const Calendar = () => {
     }
   };
 
-
-
-
   const toggleTaskDone = async (taskId) => {
     const existingTask = store.tasks.find(t => String(t.id) === String(taskId));
     if (!existingTask) return;
+
+    // Evita llamadas al backend con ids temporales
+    if (
+      String(taskId).includes('.') ||
+      String(taskId).includes('-') ||
+      Number.isNaN(Number(taskId))
+    ) {
+      dispatch({
+        type: "UPDATE_TASK",
+        payload: { ...existingTask, done: !existingTask.done }
+      });
+      return;
+    }
 
     const userId = getUserId({ storeUser: store.user });
     if (!userId) {
@@ -244,7 +355,7 @@ const Calendar = () => {
     });
 
     try {
-      await apiUpdateUserTask(userId, Number(taskId), { status: newDone });
+      await apiUpdateUserTask(String(userId), String(taskId), { status: newDone });
     } catch (e) {
       // Rollback si falla
       dispatch({
@@ -264,21 +375,15 @@ const Calendar = () => {
   };
 
   // NUEVO: construir body para el backend de eventos
-  // Reemplaza tu toBackendEventBody por este:
   const toBackendEventBody = (evt) => {
     const allDay = !!evt.allDay;
 
-    // Separar fecha y hora si startDate/endDate ya venían con "T..."
     const s = parseISOToParts(evt.startDate);
     const e = parseISOToParts(evt.endDate || evt.startDate);
 
-    const startDate = s.date;                 // "YYYY-MM-DD"
-    const endDate = e.date;                 // "YYYY-MM-DD" (fallback al start)
+    const startDate = s.date;
+    const endDate = e.date;
 
-    // Si es allDay no enviamos hora. Si no, prioridad:
-    // 1) hora explícita del form (startTime/endTime)
-    // 2) hora que ya venía embebida en startDate/endDate
-    // 3) fallback "00:00" (y para end, fallback a startTime)
     const startTime = allDay ? '' : (evt.startTime || s.time || '00:00');
     const endTime = allDay ? '' : (evt.endTime || e.time || startTime || '00:00');
 
@@ -299,7 +404,6 @@ const Calendar = () => {
       color: (safeColor ?? ""),             // nunca null
     };
   };
-
 
   // NUEVO: normalizar respuesta del backend -> shape del store
   const normalizeEventFromServer = (server) => {
@@ -323,11 +427,9 @@ const Calendar = () => {
     };
   };
 
-
   // --- Drag & Resize ---
-  // MODIFICADO: al mover/redimensionar EVENTO, persiste en backend
   const handleEventDrop = async (info) => {
-    const { type, originalId } = info.event.extendedProps; // 👈 el id real
+    const { type, originalId } = info.event.extendedProps; // id real
     const { start, end, allDay } = info.event;
 
     const updatedItem = type === 'event'
@@ -364,7 +466,7 @@ const Calendar = () => {
           ? `${payload.startDate}T${payload.startTime}:00`
           : `${payload.startDate}T00:00:00`;
         try {
-          await apiUpdateUserTask(Number(userId), Number(originalId), { date: iso });
+          await apiUpdateUserTask(String(userId), String(originalId), { date: iso });
         } catch (e) {
           dispatch({ type: "UPDATE_TASK", payload: updatedItem }); // rollback
           console.error("No se pudo guardar el cambio de día de la tarea:", e);
@@ -390,9 +492,7 @@ const Calendar = () => {
     info.event.setEnd(payload.endDate);
   };
 
-
   const handleEventResize = handleEventDrop;
-
 
   // --- Popover ---
   const handleDateClick = (arg) => {
@@ -418,41 +518,40 @@ const Calendar = () => {
 
   const handleEventClick = (clickInfo) => {
     const { type, originalId } = clickInfo.event.extendedProps;
-    console.log(originalId);
     const updatedItem = type === 'event'
       ? store.events.find(e => e.id === String(originalId))
       : store.tasks.find(t => t.id === originalId);
-    console.log(updatedItem);
     if (!updatedItem) return;
 
-    if (type === 'event') {
-      const rect = clickInfo.jsEvent.target.getBoundingClientRect();
-      let popoverWidth = 300, popoverHeight = 400;
-      let x = rect.left + rect.width / 2 - popoverWidth / 2;
-      let y = rect.top - popoverHeight - 10;
-      if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
-      if (x < 0) x = 10;
-      if (y < 0) y = rect.bottom + 10;
+    const rect = clickInfo.jsEvent.target.getBoundingClientRect();
+    let popoverWidth = 300, popoverHeight = 400;
+    let x = rect.left + rect.width / 2 - popoverWidth / 2;
+    let y = rect.top - popoverHeight - 10;
+    if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
+    if (x < 0) x = 10;
+    if (y < 0) y = rect.bottom + 10;
 
+    if (type === 'event') {
       setPopover({ x, y, item: { ...updatedItem, calendarId: updatedItem.calendarId || defaultCalendarId } });
     } else if (type === 'task') {
-      const rect = clickInfo.jsEvent.target.getBoundingClientRect();
-      let popoverWidth = 300, popoverHeight = 400;
-      let x = rect.left + rect.width / 2 - popoverWidth / 2;
-      let y = rect.top - popoverHeight - 10;
-      if (x + popoverWidth > window.innerWidth) x = window.innerWidth - popoverWidth - 10;
-      if (x < 0) x = 10;
-      if (y < 0) y = rect.bottom + 10;
-
       setPopover({
         x, y,
         item: {
           ...updatedItem,
-          originalId: updatedItem.id, // <--- importante
+          originalId: updatedItem.id,
+          mode: 'edit',
         }
       });
     }
   };
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsCompact(window.innerWidth < 640); // cambia 640 a tu breakpoint deseado
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const closePopover = (e) => {
@@ -473,15 +572,7 @@ const Calendar = () => {
     ...store.events.map(e => ({ ...e, type: 'event' })),
     ...store.tasks.map(t => ({ ...t, type: 'task' }))
   ];
-  
-  useEffect(() => {
-    const handleResize = () => {
-      setIsCompact(window.innerWidth < 640); // cambia 640 a tu breakpoint deseado
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  
+
   // --- Renderizado ---
   const renderEventContent = (eventInfo) => {
     const { type, groupId } = eventInfo.event.extendedProps;
@@ -598,7 +689,7 @@ const Calendar = () => {
               done: item.done ?? false,
               ...rest
             },
-            
+
             display: 'block',
             startEditable: true,
             durationEditable: type === 'event',
@@ -606,40 +697,40 @@ const Calendar = () => {
           };
         })}
         eventDidMount={(info) => {
-    if (info.event.extendedProps.type === "task") {
-      // Aplica borde y fondo al <a>
-      info.el.style.borderRadius = "16px";
-      info.el.style.overflow = "hidden";
-      info.el.style.backgroundColor = "#fff"; // o rgba si quieres semitransparente
-      info.el.style.border = `1px solid ${info.event.extendedProps.groupColor || '#5a8770'}`;
+          if (info.event.extendedProps.type === "task") {
+            // Aplica borde y fondo al <a>
+            info.el.style.borderRadius = "16px";
+            info.el.style.overflow = "hidden";
+            info.el.style.backgroundColor = "#fff";
+            info.el.style.border = `1px solid ${info.event.extendedProps.groupColor || '#5a8770'}`;
 
-      // También aplica a fc-event-main para que el contenido respete el borde
-      const main = info.el.querySelector('.fc-event-main');
-      if (main) {
-        main.style.borderRadius = "16px";
-        main.style.overflow = "hidden";
-      }
-    }
-  }}
-dayCellDidMount={(info) => {
-  if (info.isToday) {
-    const numberEl = info.el.querySelector(".fc-daygrid-day-number, .fc-col-header-cell-cushion");
-    if (numberEl) {
-      numberEl.classList.add(
-        "bg-red-500",
-        "text-white",
-        "rounded-full",
-        "w-7",
-        "h-7",
-        "flex",
-        "items-center",
-        "justify-center",
-        "ms-auto",
-        "font-semibold"
-      );
-    }
-  }
-}}
+            // También aplica a fc-event-main para que el contenido respete el borde
+            const main = info.el.querySelector('.fc-event-main');
+            if (main) {
+              main.style.borderRadius = "16px";
+              main.style.overflow = "hidden";
+            }
+          }
+        }}
+        dayCellDidMount={(info) => {
+          if (info.isToday) {
+            const numberEl = info.el.querySelector(".fc-daygrid-day-number, .fc-col-header-cell-cushion");
+            if (numberEl) {
+              numberEl.classList.add(
+                "bg-red-500",
+                "text-white",
+                "rounded-full",
+                "w-7",
+                "h-7",
+                "flex",
+                "items-center",
+                "justify-center",
+                "ms-auto",
+                "font-semibold"
+              );
+            }
+          }
+        }}
         displayEventTime
         eventContent={renderEventContent}
         dateClick={handleDateClick}
