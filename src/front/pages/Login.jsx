@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 import { authFetch, loadInitialData } from "../lib/api";
+import logo from "../../../logo_grande.png"
+import Logo from "../components/Logo";
 
 // 🔹 Overlay de carga (pantalla completa)
 const LoaderOverlay = ({ title = "Entrando…", subtitle = "Cargando tu calendario" }) => {
@@ -122,17 +124,22 @@ export const Login = () => {
   const isDisabled = status.loading;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-sky-50 to-emerald-50 flex items-center justify-center px-4 relative">
+    <div className="min-h-screen  from-rose-50 via-sky-50 to-emerald-50 flex items-center justify-center px-4 relative">
       {/* 🔹 Overlay durante la carga */}
       {status.loading && <LoaderOverlay title="Entrando…" subtitle="Cargando tu calendario" />}
 
       <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-semibold text-slate-800">Bienvenido</h1>
-          <p className="text-slate-500 mt-1">Inicia sesión para continuar</p>
-        </div>
+        <div className="mb-6 text-center px-4 sm:px-6 md:px-8 lg:px-0">
+  <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-slate-800 mb-4">
+    Bienvenido a
+  </h1>
+  <Logo/>
+  <p className="text-sm sm:text-base md:text-lg text-slate-500 mt-4">
+    Inicia sesión para continuar
+  </p>
+</div>
 
-        <div className="bg-white/80 backdrop-blur rounded-2xl shadow-xl border border-white/60 p-6">
+        <div className="bg-white/80 backdrop-blur  shadow-xl my-card border-white/60 p-6">
           <form onSubmit={onSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">Email</label>
@@ -163,7 +170,7 @@ export const Login = () => {
             </div>
 
             <button
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-sky-400/90 hover:bg-sky-400 active:bg-sky-500 text-white font-medium py-3 transition disabled:opacity-60"
+              className="w-full my-btn inline-flex items-center justify-center gap-2 rounded-xl  font-medium py-3 transition disabled:opacity-60"
               disabled={isDisabled}
             >
               {/* 🔹 Spinner en el botón */}

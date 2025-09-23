@@ -152,109 +152,104 @@ export default function TablaEventos({ eventos = [] }) {
   }, [eventosFiltrados]);
 
   return (
-    <div>
-        <div className="relative w-full max-w-lg mb-4 flex items-center">
-          <h1 className="text-2xl font-bold mx-auto">Eventos</h1>
+    <div className="flex flex-col items-center space-y-6">
 
-          {/* Botón + menú de filtro */}
-          <div className="relative">
-            <button
-              onClick={() => setOpen((v) => !v)}
-              aria-expanded={open}
-              className="absolute right-0 top-3 text-sky-600 text-sm hover:text-sky-800 transition-colors"
-            >
-              Filtrar
-            </button>
+  {/* Encabezado */}
+  <div className="relative w-full max-w-lg flex items-center justify-center">
+    <h1 className="text-2xl font-bold">Eventos</h1>
+    <button
+      onClick={() => setOpen((v) => !v)}
+      aria-expanded={open}
+      className="absolute right-0 text-sky-600 text-sm hover:text-sky-800 transition-colors"
+    >
+      Filtrar
+    </button>
 
-            {open && (
-              <div className="absolute right-0 mt-2 w-44 rounded-xl border bg-white shadow-lg p-1 z-20">
-                <ItemFiltro
-                  activo={filtro === "todos"}
-                  etiqueta="Todos"
-                  badge={counts.total}
-                  onClick={() => {
-                    setFiltro("todos");
-                    setOpen(false);
-                  }}
-                />
-                <ItemFiltro
-                  activo={filtro === "hoy"}
-                  etiqueta="Hoy"
-                  badge={counts.today}
-                  onClick={() => {
-                    setFiltro("hoy");
-                    setOpen(false);
-                  }}
-                />
-                <ItemFiltro
-                  activo={filtro === "semana"}
-                  etiqueta="Esta semana"
-                  badge={counts.week}
-                  onClick={() => {
-                    setFiltro("semana");
-                    setOpen(false);
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-    <div className="flex flex-col p-3 border-gray-400 my-card">
-        {/* Contenido */}
-        <div className="space-y-6 px-4 pb-4">
-          {grupos.map(({ key, date, list }) => (
-            <section key={key} className="space-y-3">
-              <h2 className="text-md font-medium text-gray-600 mb-2">
-                {fmtFechaCabecera(date)}
-              </h2>
-
-              <div className="space-y-3">
-                {list.map((e) => {
-                  const color =
-                    /^#([0-9a-f]{6})$/i.test(e.color || "")
-                      ? e.color
-                      : "#94a3b8";
-                  const isAllDay = !!e.all_day;
-                  return (
-                    <div
-                      key={e.id}
-                      className="grid grid-cols-[60px_2px_1fr] items-start"
-                    >
-                      {/* Hora */}
-                      <div className="text-[11px] leading-tight text-slate-700 text-right pr-1">
-                        <div className="font-medium">
-                          {isAllDay ? "Todo el día" : fmtHora(e._start)}
-                        </div>
-                        {!isAllDay && e._end && (
-                          <div className="text-slate-400">{fmtHora(e._end)}</div>
-                        )}
-                      </div>
-
-                      {/* Línea vertical */}
-                      <div className="bg-slate-800 rounded-full h-full min-h-[18px]" />
-
-                      {/* Pastilla */}
-                      <div className="pl-2">
-                        <span
-                          className="inline-block rounded-lg px-3 py-1.5 text-xs font-medium"
-                          style={{ backgroundColor: softBg(color), color }}
-                        >
-                          {e.title}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-
-          {grupos.length === 0 && (
-            <div className="text-slate-400 text-sm py-6">Sin eventos</div>
-          )}
-        </div>
+    {open && (
+      <div className="absolute right-0 mt-2 w-44 rounded-xl border bg-white shadow-lg p-1 z-20">
+        <ItemFiltro
+          activo={filtro === "todos"}
+          etiqueta="Todos"
+          badge={counts.total}
+          onClick={() => {
+            setFiltro("todos");
+            setOpen(false);
+          }}
+        />
+        <ItemFiltro
+          activo={filtro === "hoy"}
+          etiqueta="Hoy"
+          badge={counts.today}
+          onClick={() => {
+            setFiltro("hoy");
+            setOpen(false);
+          }}
+        />
+        <ItemFiltro
+          activo={filtro === "semana"}
+          etiqueta="Esta semana"
+          badge={counts.week}
+          onClick={() => {
+            setFiltro("semana");
+            setOpen(false);
+          }}
+        />
       </div>
-    </div>
+    )}
+  </div>
+
+  {/* my-card de eventos */}
+  <div className="w-full max-w-2xl rounded-2xl bg-white p-4 space-y-6 my-card mt-3">
+    {grupos.map(({ key, date, list }) => (
+      <section key={key} className="space-y-3">
+        <h2 className="text-md font-medium text-gray-600 mb-2">
+          {fmtFechaCabecera(date)}
+        </h2>
+
+        <div className="space-y-3">
+          {list.map((e) => {
+            const color =
+              /^#([0-9a-f]{6})$/i.test(e.color || "") ? e.color : "#94a3b8";
+            const isAllDay = !!e.all_day;
+            return (
+              <div
+                key={e.id}
+                className="grid grid-cols-[60px_2px_1fr] items-center"
+              >
+                {/* Hora */}
+                <div className="text-[11px] leading-tight text-slate-700 text-right pr-1">
+                  <div className="font-medium">
+                    {isAllDay ? "Todo el día" : fmtHora(e._start)}
+                  </div>
+                  {!isAllDay && e._end && (
+                    <div className="text-slate-400">{fmtHora(e._end)}</div>
+                  )}
+                </div>
+
+                {/* Línea vertical */}
+                <div className="bg-slate-500 rounded-full w-[1px] h-full min-h-[10px]" />
+
+                {/* Pastilla */}
+                <div className="pl-2">
+                  <span
+                    className="inline-block rounded-lg px-3 py-1.5 text-xs font-medium w-full"
+                    style={{ backgroundColor: softBg(color), color }}
+                  >
+                    {e.title}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    ))}
+
+    {grupos.length === 0 && (
+      <div className="text-gray-400 text-sm p-4 text-center">Sin eventos</div>
+    )}
+  </div>
+</div>
   );
 }
 

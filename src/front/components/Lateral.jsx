@@ -149,7 +149,7 @@ export const Lateral = ({ onClose }) => {
                                 </div>
                                 <div className="flex space-x-1">
                                     <button onClick={() => handleEdit(cal, "calendar")} className="text-blue-500 text-xs"><Pencil className="w-4 h-4" /></button>
-                                    <button onClick={() => handleDelete(cal, "calendar")} className="text-red-500 text-xs"><Trash className="w-4 h-4"/></button>
+                                    <button onClick={() => handleDelete(cal, "calendar")} className="text-red-500 text-xs"><Trash className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         ))}
@@ -175,8 +175,8 @@ export const Lateral = ({ onClose }) => {
                                     <span className="text-sm text-gray-700">{group.title}</span>
                                 </div>
                                 <div className="flex space-x-1">
-                                    <button onClick={() => handleEdit(group, "task")} className="text-blue-500 text-xs"><Pencil className="w-4 h-4"/></button>
-                                    <button onClick={() => handleDelete(group, "task")} className="text-red-500 text-xs"><Trash className="w-4 h-4"/></button>
+                                    <button onClick={() => handleEdit(group, "task")} className="text-blue-500 text-xs"><Pencil className="w-4 h-4" /></button>
+                                    <button onClick={() => handleDelete(group, "task")} className="text-red-500 text-xs"><Trash className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         ))}
@@ -185,11 +185,55 @@ export const Lateral = ({ onClose }) => {
 
                 {/* Formularios Crear/Editar Calendario */}
                 {createCalendar && (
-                    <div className="card p-4 border rounded bg-white absolute top-20 left-4 w-72 shadow-lg">
-                        <h3 className="font-semibold text-lg mb-2">{editingType === "calendar" ? "Editar calendario" : "Crear calendario"}</h3>
+                    <div className="p-4 my-card bg-white absolute top-20 left-4 w-72 shadow-lg form-appear">
+                        <h3 className="font-semibold text-center text-lg mb-3">{editingType === "calendar" ? "Editar calendario" : "Crear calendario"}</h3>
                         <form onSubmit={handleSubmitCalendar} className="space-y-3">
                             <div className="flex align-center ">
-                                <label className="font-semibold align-self-center pr-2">Título:</label>
+                                <label className="font-semibold align-self-center pr-2 flex-1">Título:</label>
+                                <input
+                                    type="text"
+                                    className="form-control "
+                                    value={title}
+                                    onChange={handleTitleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="flex items-center space-x-2 ">
+                                <label className="font-semibold ">Color:</label>
+                                <input type="color" value={color} className="rounded-md flex-1" onChange={handleColorChange} />
+                                <input
+                                    type="text"
+                                    value={color}
+                                    onChange={handleInputChange}
+                                    className="border rounded px-2 py-1 w-20 flex-1 text-muted"
+                                />
+                            </div>
+                            <div className="flex gap-2 w-full">
+                                <button
+                                    type="button"
+                                    onClick={resetForm}
+                                    className="btn btn-secondary flex-1"
+                                >
+                                    Cerrar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-success flex-1"
+                                >
+                                    Guardar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                {/* Formularios Crear/Editar Grupo de Tareas */}
+                {createTask && (
+                    <div className=" p-4 my-card bg-white absolute top-20 left-4 w-72 shadow-lg form-appear">
+                        <h3 className="font-semibold text-center text-lg mb-3">{editingType === "task" ? "Editar grupo de tareas" : "Crear grupo de tareas"}</h3>
+                        <form onSubmit={handleSubmitTask} className="space-y-3">
+                            <div className="flex align-center">
+                                <label className="font-semibold align-self-center pr-2 flex-1">Título:</label>
                                 <input
                                     type="text"
                                     className="form-control"
@@ -200,50 +244,17 @@ export const Lateral = ({ onClose }) => {
                             </div>
                             <div className="flex items-center space-x-2">
                                 <label className="font-semibold ">Color:</label>
-                                <input type="color" value={color} className="rounded-md" onChange={handleColorChange} />
+                                <input className="rounded-md flex-1" type="color" value={color} onChange={handleColorChange} />
                                 <input
                                     type="text"
                                     value={color}
                                     onChange={handleInputChange}
-                                    className="border rounded px-2 py-1 w-20"
+                                    className="border rounded px-2 py-1 w-20 flex-1 text-muted"
                                 />
                             </div>
-                            <div className="flex justify-end space-x-2">
-                                <button type="button" onClick={resetForm} className="btn btn-secondary">Cerrar</button>
-                                <button type="submit" className="btn btn-success">Guardar</button>
-                            </div>
-                        </form>
-                    </div>
-                )}
-
-                {/* Formularios Crear/Editar Grupo de Tareas */}
-                {createTask && (
-                    <div className="card p-4 border rounded bg-white absolute top-20 left-4 w-72 shadow-lg">
-                        <h3 className="font-semibold mb-2">{editingType === "task" ? "Editar grupo de tareas" : "Crear grupo de tareas"}</h3>
-                        <form onSubmit={handleSubmitTask} className="space-y-3">
-                            <div className="flex flex-col">
-                                <label>Título:</label>
-                                <input
-                                    type="text"
-                                    className="border rounded px-2 py-1"
-                                    value={title}
-                                    onChange={handleTitleChange}
-                                    required
-                                />
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <label>Color:</label>
-                                <input className="rounded-circle" type="color" value={color} onChange={handleColorChange} />
-                                <input
-                                    type="text"
-                                    value={color}
-                                    onChange={handleInputChange}
-                                    className="border rounded px-2 py-1 w-20"
-                                />
-                            </div>
-                            <div className="flex justify-end space-x-2">
-                                <button type="button" onClick={resetForm} className="btn btn-secondary">Cerrar</button>
-                                <button type="submit" className="btn btn-success">Guardar</button>
+                            <div className="flex gap-2 w-full">
+                                <button type="button" onClick={resetForm} className="btn btn-secondary flex-1">Cerrar</button>
+                                <button type="submit" className="btn btn-success flex-1">Guardar</button>
                             </div>
                         </form>
                     </div>
@@ -251,27 +262,27 @@ export const Lateral = ({ onClose }) => {
             </div>
 
             {/* Footer fijo abajo: Config y Logout en la misma línea */}
-           <div className="mt-4 flex justify-between">
-    <Link to="/config" className="flex items-center text-gray-700 hover:text-gray-900">
-        <Cog className="w-5 h-5 mr-1" /> Configuración
-    </Link>
-    <button
-        onClick={() => {
-            // 1) Borrar token en ambos lugares
-            localStorage.removeItem("token");
-            sessionStorage.removeItem("token");
+            <div className="mt-4 flex justify-between">
+                <Link to="/config" className="flex items-center text-gray-700 hover:text-gray-900">
+                    <Cog className="w-5 h-5 mr-1" /> Configuración
+                </Link>
+                <button
+                    onClick={() => {
+                        // 1) Borrar token en ambos lugares
+                        localStorage.removeItem("token");
+                        sessionStorage.removeItem("token");
 
-            // 2) Si usas reducer global, resetea el store
-            dispatch({ type: "LOGOUT" });
+                        // 2) Si usas reducer global, resetea el store
+                        dispatch({ type: "LOGOUT" });
 
-            // 3) Redirigir al login
-            window.location.href = "/login";
-        }}
-        className="flex items-center text-red-500 hover:text-red-600"
-    >
-        <LogOut className="w-5 h-5 mr-1" /> Log out
-    </button>
-</div>
+                        // 3) Redirigir al login
+                        window.location.href = "/login";
+                    }}
+                    className="flex items-center text-red-500 hover:text-red-600"
+                >
+                    <LogOut className="w-5 h-5 mr-1" /> Log out
+                </button>
+            </div>
 
         </div>
 

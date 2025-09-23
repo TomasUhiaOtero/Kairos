@@ -230,7 +230,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
   const selectedGroup = store.taskGroup.find((g) => g.id === taskGroup);
 
   return (
-    <div className="d-flex flex-column gap-2">
+     <div className="d-flex flex-column gap-2">
       {!isEdit && (
         <ul className="flex justify-center gap-2 mb-2">
           <li>
@@ -262,122 +262,124 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
 
       {/* Formulario Evento */}
       {activeTab === "evento" && (
-        <form onSubmit={handleSubmit}>
-          <div className="flex mb-2">
-            <label className="me-2 w-24">Título</label>
-            <input className="form-control" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required />
+        <form onSubmit={handleSubmit} className="px-3">
+          <div className="flex mb-2 items-center gap-2">
+            <label className="font-semibold w-24">Título</label>
+            <input className="form-control w-48" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} required />
           </div>
 
           <div className="flex mb-2 items-center gap-2">
-            <label className="me-2 w-24">Calendario</label>
+            <label className="font-semibold w-24">Calendario</label>
             {store.calendar.length > 0 ? (
-              <select className="form-select" value={eventCalendar} onChange={(e) => setEventCalendar(e.target.value)} required>
+              <select className="form-select w-40 border" value={eventCalendar} onChange={(e) => setEventCalendar(e.target.value)} required>
                 {store.calendar.map((event) => (
                   <option key={event.id} value={event.id}>{event.title}</option>
                 ))}
               </select>
             ) : (
-              <p className="text-gray-500">Crea un calendario primero</p>
+              <p className="text-gray-500 w-40">Crea un calendario primero</p>
             )}
             <div
-              className="w-6 h-6 rounded-full border flex-shrink-0"
+              className="w-6 h-6 rounded-full border"
               style={{ backgroundColor: selectedEvent?.color || "#ccc", borderColor: selectedEvent?.color || "#888" }}
             />
           </div>
 
           <div className="flex mb-2 items-center gap-2">
-            <label className="me-2">Todo el día</label>
-            <div className="form-check form-switch">
+            <label className="font-semibold w-24">Todo el día</label>
+            <div className="form-check form-switch m-0">
               <input className="form-check-input" type="checkbox" checked={allDay} onChange={() => setAllDay(!allDay)} />
             </div>
           </div>
 
           <div className="flex mb-2 items-center gap-2">
-            <label className="w-24">Fecha inicio</label>
-            <input type="date" className="form-control" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} />
-            {!allDay && <input type="time" className="form-control" value={startTime} onChange={(e) => setStartTime(e.target.value)} />}
+            <label className="font-semibold w-24">Fecha inicio</label>
+            <input type="date" className={`form-control ${allDay ? 'w-48' : 'w-32'}`} value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} />
+            {!allDay && <input type="time" className="form-control w-24" value={startTime} onChange={(e) => setStartTime(e.target.value)} />}
           </div>
 
           <div className="flex mb-2 items-center gap-2">
-            <label className="w-24">Fecha fin</label>
-            <input type="date" className="form-control" value={endDate} onChange={(e) => handleEndDateChange(e.target.value)} />
-            {!allDay && <input type="time" className="form-control" value={endTime} onChange={(e) => setEndTime(e.target.value)} />}
+            <label className="font-semibold w-24">Fecha fin</label>
+            <input type="date" className={`form-control ${allDay ? 'w-48' : 'w-32'}`} value={endDate} onChange={(e) => handleEndDateChange(e.target.value)} />
+            {!allDay && <input type="time" className="form-control w-24" value={endTime} onChange={(e) => setEndTime(e.target.value)} />}
           </div>
 
           <div className="flex mb-2 items-center gap-2">
-            <label className="w-24">Repetir</label>
-            <div className="form-check form-switch">
-              <input className="form-check-input" type="checkbox" checked={repeat} onChange={() => setRepeat(!repeat)} />
+            <label className="font-semibold w-24">Repetir</label>
+            <div className="form-check form-switch m-0">
+              <input className="form-check-input accent-emerald-700" type="checkbox" checked={repeat} onChange={() => setRepeat(!repeat)} />
             </div>
           </div>
 
           {repeat && (
-            <div className="flex gap-2 mt-2">
+            <div className="flex justify-center gap-2 mt-2 mb-2">
               {["L", "M", "X", "J", "V", "S", "D"].map((initial, i) => (
                 <div key={i} onClick={() => toggleDay(i)}
                   className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer text-sm font-bold
-                  ${checkedDays[i] ? "bg-gray-500 text-white" : "bg-white border border-gray-400 text-gray-800"}`}>
+          ${checkedDays[i] ? "bg-gray-500 text-white" : "bg-white border border-gray-400 text-gray-800"}`}>
                   {initial}
                 </div>
               ))}
             </div>
           )}
 
-          <div className="flex mt-2 gap-2">
+          <div className="flex mt-3 gap-2 w-full ">
             <button
               type="submit"
-              className="btn btn-primary btn-sm"
+              className="btn my-btn flex-1"
               disabled={store.calendar.length === 0 || !eventCalendar}
             >
               {isEdit ? "Actualizar" : "Guardar"}
             </button>
-            {isEdit && <button className="btn btn-danger" onClick={handleDelete}>Eliminar</button>}
+            {isEdit && <button className="btn btn-danger flex-1" onClick={handleDelete}>Eliminar</button>}
           </div>
         </form>
       )}
 
       {/* Formulario Tarea */}
       {activeTab === "tarea" && (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="px-3">
           <div className="flex mb-2 items-center gap-2">
-            <label className="w-24">Título</label>
-            <input className="form-control" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} required />
+            <label className="font-semibold w-16">Título</label>
+            <input className="form-control w-48" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} required />
           </div>
 
           <div className="flex mb-2 items-center gap-2">
-            <label className="w-24">Grupo</label>
+            <label className="font-semibold w-16">Grupo</label>
             {store.taskGroup.length > 0 ? (
-              <select className="form-select w-auto" value={taskGroup} onChange={(e) => setTaskGroup(e.target.value)} required>
+              <select className="form-select border w-48" value={taskGroup} onChange={(e) => setTaskGroup(e.target.value)} required>
                 {store.taskGroup.map((group) => (
                   <option key={group.id} value={group.id}>{group.title}</option>
                 ))}
               </select>
             ) : (
-              <p className="text-gray-500" required>Crea un grupo de tareas primero</p>
+              <p className="text-gray-500 w-48" required>Crea un grupo de tareas primero</p>
             )}
             <div
               className="w-6 h-6 rounded-circle border"
-              style={{ backgroundColor: (store.taskGroup.find(g => g.id === taskGroup)?.color) || "#ccc",
-                       borderColor: (store.taskGroup.find(g => g.id === taskGroup)?.color) || "#888" }}
+              style={{
+                backgroundColor: (store.taskGroup.find(g => g.id === taskGroup)?.color) || "#ccc",
+                borderColor: (store.taskGroup.find(g => g.id === taskGroup)?.color) || "#888"
+              }}
             />
           </div>
 
           <div className="flex mb-2 items-center gap-2">
-            <label className="w-24">Fecha</label>
-            <input type="date" className="form-control w-auto flex-shrink-0" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            <input type="time" className="form-control" value={startTime} onChange={(e) => setStartTime(e.target.value)} placeholder="Opcional" />
+            <label className="font-semibold w-16">Fecha</label>
+            <input type="date" className="form-control w-32" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <input type="time" className="form-control w-24 border" value={startTime} onChange={(e) => setStartTime(e.target.value)} placeholder="Opcional" />
           </div>
 
           <div className="flex mb-2 items-center gap-2">
-            <label className="w-24">Repetir</label>
-            <div className="form-check form-switch">
+            <label className="font-semibold w-16">Repetir</label>
+            <div className="form-check form-switch m-0">
               <input className="form-check-input" type="checkbox" checked={taskRepeat} onChange={() => setTaskRepeat(!taskRepeat)} />
             </div>
           </div>
 
           {taskRepeat && (
             <div className="flex mb-2 items-center gap-2">
-              <label className="w-24">Cada</label>
+              <label className="font-semibold w-16">Cada</label>
               <input
                 type="number"
                 className="form-control w-24"
@@ -386,7 +388,7 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
                 onChange={(e) => setTaskFrequencyNum(e.target.value)}
               />
               <select
-                className="form-select w-auto"
+                className="form-select w-28"
                 value={taskFrequencyUnit}
                 onChange={(e) => setTaskFrequencyUnit(e.target.value)}
               >
@@ -398,15 +400,15 @@ const CreateEvent = ({ selectedDate, onAddItem, onDeleteItem, onClose, item }) =
             </div>
           )}
 
-          <div className="flex mt-2 gap-2">
+          <div className="flex mt-2 gap-2 w-full">
             <button
               type="submit"
-              className="btn btn-primary btn-sm"
+              className="btn my-btn flex-1"
               disabled={store.taskGroup.length === 0 || !taskGroup}
             >
               {isEdit ? "Actualizar" : "Guardar"}
             </button>
-            {isEdit && <button className="btn btn-danger" onClick={handleDelete}>Eliminar</button>}
+            {isEdit && <button className="btn btn-danger flex-1" onClick={handleDelete}>Eliminar</button>}
           </div>
         </form>
       )}

@@ -49,14 +49,13 @@ export const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-amber-50 to-sky-50 flex items-center justify-center px-4">
+    <div className="min-h-screen -to-br from-violet-50 via-amber-50 to-sky-50 flex items-center justify-center px-4">
       <div className="w-full max-w-lg">
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-semibold text-slate-800">Crear cuenta</h1>
-          <p className="text-slate-500 mt-1">Únete con un estilo minimalista 💫</p>
+          <h1 className="text-3xl font-semibold text-slate-800">Crear tu cuenta</h1>
         </div>
 
-        <div className="bg-white/80 backdrop-blur rounded-2xl shadow-xl border border-white/60 p-6">
+        <div className="bg-white/80 backdrop-blur my-card border-white/60 p-6">
           <form onSubmit={onSubmit} className="grid grid-cols-1 gap-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
@@ -125,7 +124,7 @@ export const Signup = () => {
             </div>
 
             <button
-              className="w-full rounded-xl bg-violet-400/90 hover:bg-violet-400 active:bg-violet-500 text-white font-medium py-3 transition disabled:opacity-60"
+              className="w-full rounded-xl my-btn font-medium py-3 transition disabled:opacity-60"
               disabled={status.loading}
             >
               {status.loading ? "Creando…" : "Crear cuenta"}

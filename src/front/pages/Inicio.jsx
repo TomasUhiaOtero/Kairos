@@ -238,28 +238,26 @@ export const Inicio = () => {
   };
 
   return (
-    <div className="container-fluid">
-      <div className="row">
-        {/* Columna vacía solo en pantallas grandes */}
-        <div className="d-none d-lg-block col-lg"></div>
+    <div className="container-fluid mx-auto justify-center  px-2">
+      <div className="flex flex-col lg:flex-row lg:gap-6 gap-2 justify-center mt-3">
 
         {/* Calendario */}
-        <div className="col-12 col-lg-7 p-3 rounded my-card calendar-container m-3">
+        <div className="w-full lg:w-7/12 p-3 my-card">
           <Calendar
             onAddItem={handleAddItem}
             onDeleteItem={handleDeleteItem}
           />
-
         </div>
 
         {/* Panel de tareas */}
-        <div className="col-12 col-lg-3 p-3 m-3">
-          <div className="p-3 mb-3 my-card">
+        <div className="w-full lg:w-3/12 flex flex-col gap-2">
+          {/* Cada tarjeta ocupa todo el ancho de la columna */}
+          <div className="p-3 my-card w-full">
             <section className="mb-1 font-bold">HOY</section>
             {todayItems.length === 0 ? <p>No hay tareas ni eventos</p> : todayItems.map(renderFullCalendarStyle)}
           </div>
 
-          <div className="p-3 mb-3 my-card">
+          <div className="p-3 my-card w-full">
             <section className="mb-1 font-bold">ESTA SEMANA</section>
             {weekItems.length === 0 ? (
               <p>No hay tareas ni eventos</p>
@@ -289,14 +287,12 @@ export const Inicio = () => {
             )}
           </div>
 
-          <div className=" p-3 my-card">
+          <div className="p-3 my-card w-full">
             <section className="mb-1 font-bold">SIN FECHA</section>
             {noDateTasks.length === 0 ? <p>No hay tareas</p> : noDateTasks.map(renderFullCalendarStyle)}
           </div>
         </div>
 
-        {/* Columna vacía solo en pantallas grandes */}
-        <div className="d-none d-lg-block col-lg"></div>
       </div>
     </div>
   );

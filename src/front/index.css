@@ -1,10 +1,33 @@
+/* =========================================
+   Tailwind
+========================================= */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-body{
+
+/* =========================================
+   Variables (Figma styles)
+========================================= */
+:root {
+  /* Colors */
+  --secundario: oklch(0.97 0 0);
+  --principal: oklch(0.508 0.118 165.612);
+
+  /* Effects */
+  --seleccionado-box-shadow: inset 0px 0px 10px 1px rgba(0, 0, 0, 0.05);
+  --sin-seleccionar-box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.25);
+}
+
+/* =========================================
+   Global
+========================================= */
+body {
   background-color: #b1b1b105;
 }
 
+/* =========================================
+   Items (tareas y eventos)
+========================================= */
 .item {
   display: flex;
   align-items: center;
@@ -35,7 +58,6 @@ body{
   cursor: pointer;
   transition: all 0.2s ease;
 }
-
 .item .check.done {
   background-color: currentColor;
 }
@@ -46,48 +68,25 @@ body{
   border: none;
   cursor: default;
 }
-
 .item.event:hover {
   filter: brightness(0.9);
 }
 
-/* Figma Styles of your File */
-:root {
-  /* Colors */
-  --color-principal: #1e3a5f;
-  --secundario: #5a8770;
-  --fondo-principal: #f9fafb;
-  --fondo-alternativo: #e5e7eb;
-  --texto-principal: #333333;
-  --texto-secundario: #6b7280;
-  --color-de-alerta: #c2574a;
-  --detalles: #c8a951;
-
-  /* Fonts */
-  /* Effects */
-  --seleccionado-box-shadow: inset 0px 0px 10px 1px rgba(0, 0, 0, 0.05);
-  --sin-seleccionar-box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.25);
-}
-ç
-/* ---------------------------------------------------------------------------------------- */
-/* ESPACIO ENTRE EVENTOS Y TAREAS */
-.fc-daygrid-event-harness {
-  margin-top: 10px; /* espacio arriba */
-  margin-bottom: 10px; /* espacio abajo */
-}
-
+/* =========================================
+   Animaciones
+========================================= */
 .lat {
   animation: Lateral 300ms linear 0s 1 normal none;
 }
 .lat-close {
   animation: Lateral-inverse 300ms linear 0s 1 reverse none;
 }
+
 @keyframes Lateral {
   0% {
     opacity: 0;
     transform: translateX(250px);
   }
-
   100% {
     opacity: 1;
     transform: translateX(0);
@@ -99,27 +98,28 @@ body{
     opacity: 0;
     transform: translateX(250px);
   }
-
   100% {
     opacity: 1;
     transform: translateX(0);
   }
 }
+
 /* Animación de apertura */
 .form-appear {
   animation: form-appear 200ms ease 0s 1 normal forwards;
 }
-
 @keyframes form-appear {
   0% {
     transform: scale(0);
   }
-
   100% {
     transform: scale(1);
   }
 }
 
+/* =========================================
+   Cards y botones
+========================================= */
 .my-card {
   background: white;
   border-radius: 16px;
@@ -128,6 +128,38 @@ body{
   border: 1px solid rgba(0, 0, 0, 0.05);
   color: #2d3748;
 }
+
+.my-btn {
+  background-color: var(--principal);
+  color: #ffffff;
+}
+.my-btn:hover {
+  background-color: var(--secundario);
+  color: #2d3748;
+}
+
+.form-select {
+  border: none;
+  text-align: center;
+}
+.form-check-input:checked {
+  background-color: var(--principal);
+  border-color: var(--principal);
+}
+.form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(40, 167, 70, 0.116) !important;
+}
+
+/* =========================================
+   FullCalendar - General
+========================================= */
+/* Espacio entre eventos y tareas */
+.fc-daygrid-event-harness {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+/* Colores y días actuales */
 .fc .fc-day-today {
   background-color: transparent !important;
 }
@@ -135,123 +167,60 @@ body{
   background-color: #33333309 !important;
 }
 
-/* Permitir varias líneas dentro del evento */
+/* Varias líneas dentro del evento */
 .fc-event-title,
 .fc-event-main {
-  white-space: normal !important;   /* permite saltos */
-  overflow-wrap: break-word !important; /* corta palabras largas */
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
   word-break: break-word !important;
   line-height: 1.2;
-  max-height: 3em; /* límite de altura (≈2 líneas) */
-  overflow: hidden; /* oculta lo que pase del límite */
-}
-@media (max-width: 640px) {
-  /* Celda del día */
-  .fc-daygrid-day-frame {
-    display: flex;
-    flex-direction: column;  
-    align-items: center;     
-    justify-content: flex-start; 
-    padding: 2px !important;
-    height: auto !important;
-    min-height: 0 !important; /* elimina altura mínima grande */
-  }
-
-  /* Número del día centrado horizontalmente */
-  .fc-daygrid-day-top {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-    margin-bottom: 2px;
-    padding: 0; /* quitar padding extra */
-  }
-
-  .fc-daygrid-day-number {
-    font-size: 1rem;
-    font-weight: 600;
-    line-height: 1.2rem;
-  }
-
-  /* Contenedor de los puntitos */
-  .fc-daygrid-day-events {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: center;
-    gap: 2px;
-    flex-wrap: wrap;
-    width: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    max-height: 12px; /* limitar altura de puntitos */
-    overflow: hidden; /* si hay muchos, que no expanda la celda */
-  }
-
-  /* Cada puntito */
-  .fc-daygrid-day-events .fc-event {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: currentColor;
-    border: none !important;
-  }
+  max-height: 3em; /* ≈2 líneas */
+  overflow: hidden;
 }
 
-.form-select {
-  border:none;
-  text-align: center;
-}
-/* Bordes de las celdas del mes */
+/* Bordes y estructura */
 .fc .fc-daygrid-day {
-  border: 1px solid rgba(0, 0, 0, 0.05); /* gris muy clarito */
-}
-
-/* Opcional: separar también el header */
-.fc .fc-col-header-cell {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-/* Si quieres solo horizontales más claras y verticales normales */
-.fc .fc-daygrid-day {
-  border-top: 1px solid rgba(0,0,0,0.05);
-  border-left: 1px solid rgba(0,0,0,0.05);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-left: 1px solid rgba(0, 0, 0, 0.05);
   border-right: none;
   border-bottom: none;
 }
+.fc .fc-daygrid-day-frame {
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+.fc .fc-col-header-cell {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-top: none;
+}
+.fc .fc-daygrid {
+  border: none !important;
+}
+
+/* =========================================
+   Estilos móviles
+========================================= */
 @media (max-width: 640px) {
-  /* Quitar todas las líneas internas */
-  .fc .fc-daygrid-day,
-  .fc .fc-daygrid-day-frame,
-  .fc .fc-daygrid-day-top,
-  .fc .fc-daygrid-day-events,
-  .fc .fc-col-header-cell {
-    border: none !important;
-  }
-
-  /* Quitar bordes exteriores del calendario */
-  .fc .fc-daygrid,
-  .fc .fc-col-header,
-  .fc .fc-scrollgrid {
-    border: none !important;
-  }
-
-  /* Ajuste de la celda */
+  /* Celda del día */
   .fc-daygrid-day-frame {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 4px !important;
-    min-height: 24px;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important; /* alineamos al inicio en lugar de al centro */
+    justify-content: flex-start !important;
+    height: auto !important;
+    border: none !important;
+    text-align: center !important;
+  }
+   .fc-daygrid-day {
+    min-height: 0 !important;
     height: auto !important;
   }
-
   .fc-daygrid-day-top {
     display: flex;
     justify-content: center;
     width: 100%;
     margin-bottom: 4px;
+    padding: 0;
+    border: none !important;
   }
 
   .fc-daygrid-day-number {
@@ -260,41 +229,59 @@ body{
     line-height: 1.2;
   }
 
+  /* Puntitos */
   .fc-daygrid-day-events {
     display: flex !important;
     flex-direction: row !important;
-    justify-content: center;
-    gap: 4px;
-    flex-wrap: wrap;
-    width: 100%;
+    justify-content: center !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    padding: 0 !important;
+    max-height: 12px;
+    overflow: hidden;
+    position: static !important;
+    border: none !important;
   }
-
   .fc-daygrid-day-events .fc-event {
     margin: 0 !important;
     padding: 0 !important;
-    background: none !important;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+    border: none !important;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Quitar bordes exteriores */
+  .fc .fc-daygrid-day,
+  .fc .fc-col-header-cell,
+  .fc .fc-daygrid-day-top {
     border: none !important;
   }
-}
+  .fc .fc-daygrid,
+  .fc .fc-col-header,
+  .fc .fc-scrollgrid {
+    border: none !important;
+  }
 
-/* Atenuar líneas internas del calendario */
+  .fc .fc-daygrid-body-unbalanced .fc-daygrid-day-events {
+    min-height: 1em;
+    position: relative;
+  }
+}
+.fc .fc-scrollgrid-section > * {
+    border:none
+}
 .fc .fc-daygrid-day-frame {
-  border: 1px solid rgba(0, 0, 0, 0.05); /* líneas internas suaves */
+    border: none;
 }
-
-/* Quitar borde exterior del calendario */
-.fc .fc-daygrid {
-  border: none !important;
+.fc-theme-standard .fc-scrollgrid {
+    border: none;
 }
-
-/* Quitar borde superior de los encabezados de columnas */
-.fc .fc-col-header-cell {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  border-top: none;
-}
-
-/* Opcional: eliminar bordes laterales de los días */
-.fc .fc-daygrid-day {
-  border-left: none;
-  border-right: none;
+.fc-theme-standard td, .fc-theme-standard th {
+    border: none;
 }

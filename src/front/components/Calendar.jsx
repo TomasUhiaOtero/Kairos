@@ -101,7 +101,7 @@ const Calendar = () => {
     });
     return obj;
   };
-  
+
 
   const calendarsColors = getCalendarsColors();
   const taskGroupsColors = getTaskGroupsColors();
@@ -199,7 +199,7 @@ const Calendar = () => {
 
         // id temporal → crear y reemplazar
         if (isTempId(formattedItem.id)) {
-          dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0,10) } });
+          dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0, 10) } });
           try {
             const normalized = await createInGroup({
               title: formattedItem.title,
@@ -220,7 +220,7 @@ const Calendar = () => {
         // ====== CAMBIO CLAVE: si cambió de grupo, intenta PUT con task_group_id ======
         if (prev && String(prevGroupId) !== String(newGroupId)) {
           // Optimistic UI
-          dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0,10) } });
+          dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0, 10) } });
 
           try {
             // Intento 1: actualizar la tarea existente (sin crear otra)
@@ -279,7 +279,7 @@ const Calendar = () => {
         // ====== FIN CAMBIO CLAVE ======
 
         // mismo grupo → actualizar
-        dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0,10) } });
+        dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0, 10) } });
         try {
           await apiUpdateUserTask(String(userId), String(formattedItem.id), {
             title: formattedItem.title,
@@ -297,7 +297,7 @@ const Calendar = () => {
 
       // --------- CREAR NUEVA ----------
       {
-        const tempId = `${Date.now()}-${Math.floor(Math.random()*1e6)}`;
+        const tempId = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
         const groupIdNum = Number(formattedItem.groupId);
 
         dispatch({ type: "ADD_TASK", payload: { ...formattedItem, id: tempId } });
@@ -664,25 +664,25 @@ const Calendar = () => {
       );
     }
 
-    
-    const endStr = !isAllDay
-    ? (eventInfo.event.end ? formatTime(eventInfo.event.end) : (eventInfo.event.extendedProps.endTime || ""))
-    : "";
-    
-    const startStr = !isAllDay
-  ? (eventInfo.event.start ? formatTime(eventInfo.event.start) : (eventInfo.event.extendedProps.startTime || ""))
-  : "";
 
-return (
-  <div style={{ padding: "4px 6px" }}>
-    {startStr && (
-      <span style={{ marginRight: "0.3em", fontWeight: "bold" }}>
-        {startStr}
-      </span>
-    )}
-    {eventInfo.event.title}
-  </div>
-);
+    const endStr = !isAllDay
+      ? (eventInfo.event.end ? formatTime(eventInfo.event.end) : (eventInfo.event.extendedProps.endTime || ""))
+      : "";
+
+    const startStr = !isAllDay
+      ? (eventInfo.event.start ? formatTime(eventInfo.event.start) : (eventInfo.event.extendedProps.startTime || ""))
+      : "";
+
+    return (
+      <div style={{ padding: "4px 6px" }}>
+        {startStr && (
+          <span style={{ marginRight: "0.3em", fontWeight: "bold" }}>
+            {startStr}
+          </span>
+        )}
+        {eventInfo.event.title}
+      </div>
+    );
   };
 
   // USE EFFECT ---------------------------
@@ -798,6 +798,7 @@ return (
         dateClick={handleDateClick}
         selectable
         datesSet={updateTitle}
+        fixedWeekCount={false} 
         height="75vh"
         expandRows
         nowIndicator
