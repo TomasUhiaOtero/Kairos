@@ -12,7 +12,7 @@ import {
   apiCreateEvent,
   apiUpdateEvent,
   apiDeleteEvent,
-  apiCreateTaskInGroup, // <-- añadido
+  apiCreateTaskInGroup,
   getUserId
 } from "../lib/api.js";
 
@@ -216,26 +216,66 @@ const Calendar = () => {
           return;
         }
 
-        // cambió de grupo → mover: crear en nuevo grupo y borrar la antigua
+        // ====== CAMBIO CLAVE: si cambió de grupo, intenta PUT con task_group_id ======
         if (prev && String(prevGroupId) !== String(newGroupId)) {
+          // Optimistic UI
           dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0,10) } });
+
           try {
-            const normalized = await createInGroup({
+            // Intento 1: actualizar la tarea existente (sin crear otra)
+            await apiUpdateUserTask(String(userId), String(formattedItem.id), {
               title: formattedItem.title,
-              groupIdNum: newGroupId,
-              done: formattedItem.done,
-              dateISO: iso,
+              date: iso,
+              status: formattedItem.done ?? undefined,
+              task_group_id: newGroupId, // <--- importante
             });
-            dispatch({ type: "ADD_TASK", payload: normalized });
-            await apiDeleteUserTask(String(userId), String(prev.id));
-            dispatch({ type: "DELETE_TASK", payload: prev.id });
+            // Éxito: no se crean duplicados
           } catch (e) {
-            console.error("Error moviendo tarea de grupo:", e);
-            alert(e?.message || "No se pudo mover la tarea de grupo");
+            console.error("PUT con task_group_id no disponible; usando create+delete con compensación:", e);
+
+            try {
+              // Crear en nuevo grupo
+              const normalized = await createInGroup({
+                title: formattedItem.title,
+                groupIdNum: newGroupId,
+                done: formattedItem.done,
+                dateISO: iso,
+              });
+
+              // Añadir la nueva en el store
+              dispatch({ type: "ADD_TASK", payload: normalized });
+
+              try {
+                // Borrar la antigua en backend
+                await apiDeleteUserTask(String(userId), String(prev.id));
+                // Eliminar antigua del store
+                dispatch({ type: "DELETE_TASK", payload: prev.id });
+              } catch (delErr) {
+                console.error("No se pudo borrar la tarea antigua; elimino la nueva para evitar duplicados:", delErr);
+
+                // Compensación: borrar la nueva (para no dejar 2 en BD tras recargar)
+                try {
+                  await apiDeleteUserTask(String(userId), String(normalized.id));
+                } catch { /* último recurso */ }
+
+                // Quitar nueva del store y volver al estado previo visualmente
+                dispatch({ type: "DELETE_TASK", payload: normalized.id });
+                dispatch({ type: "UPDATE_TASK", payload: prev });
+
+                alert(delErr?.message || "No se pudo mover la tarea de grupo");
+              }
+            } catch (createErr) {
+              console.error("Error creando tarea en el nuevo grupo:", createErr);
+              alert(createErr?.message || "No se pudo mover la tarea de grupo");
+              // rollback visual
+              dispatch({ type: "UPDATE_TASK", payload: prev });
+            }
           }
+
           setPopover(null);
           return;
         }
+        // ====== FIN CAMBIO CLAVE ======
 
         // mismo grupo → actualizar
         dispatch({ type: "UPDATE_TASK", payload: { ...formattedItem, startDate: iso.slice(0,10) } });

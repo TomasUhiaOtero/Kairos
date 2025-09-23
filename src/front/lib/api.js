@@ -182,7 +182,6 @@ export async function apiCreateTaskInGroup(userId, groupId, body) {
   });
 }
 
-// === Actualizar una tarea del usuario con fallbacks de método ===
 // === Actualizar una tarea del usuario con fallbacks (PRIORIDAD: PUT) ===
 export async function apiUpdateUserTask(userId, taskId, body) {
   const u = encodeURIComponent(String(userId));
@@ -258,7 +257,7 @@ export async function apiUpdateUserTask(userId, taskId, body) {
 }
 
 
-// === Borrar tarea del usuario con fallback de method-override ===
+// === Borrar tarea del usuario con fallbacks + fallback extra por id ===
 export async function apiDeleteUserTask(userId, taskId) {
   const u = encodeURIComponent(String(userId));
   const t = encodeURIComponent(String(taskId));
@@ -285,12 +284,18 @@ export async function apiDeleteUserTask(userId, taskId) {
     });
     if (res.ok) return data;
 
-    const baseMsg = (data && (data.message || data.error)) || res.statusText || "Request failed";
-    const detail = data && data.detail ? `: ${data.detail}` : "";
-    const err = new Error(`${baseMsg}${detail}`);
-    err.status = res.status;
-    err.data = data;
-    throw err;
+    // ⬇️ Fallback extra: endpoint genérico por id
+    try {
+      const data2 = await apiDeleteTask(taskId);
+      return data2;
+    } catch (_) {
+      const baseMsg = (data && (data.message || data.error)) || res.statusText || "Request failed";
+      const detail = data && data.detail ? `: ${data.detail}` : "";
+      const err = new Error(`${baseMsg}${detail}`);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
   }
 }
 
