@@ -251,12 +251,28 @@ export const Lateral = ({ onClose }) => {
             </div>
 
             {/* Footer fijo abajo: Config y Logout en la misma línea */}
-            <div className="mt-4 flex justify-between">
-                <Link to="/config" className="flex items-center text-gray-700 hover:text-gray-900">
-                    <Cog className="w-5 h-5 mr-1" /> Configuración
-                </Link>
-                <Link to="/Login" className="text-red-500 hover:text-red-600">Log out</Link>
-            </div>
+           <div className="mt-4 flex justify-between">
+    <Link to="/config" className="flex items-center text-gray-700 hover:text-gray-900">
+        <Cog className="w-5 h-5 mr-1" /> Configuración
+    </Link>
+    <button
+        onClick={() => {
+            // 1) Borrar token en ambos lugares
+            localStorage.removeItem("token");
+            sessionStorage.removeItem("token");
+
+            // 2) Si usas reducer global, resetea el store
+            dispatch({ type: "LOGOUT" });
+
+            // 3) Redirigir al login
+            window.location.href = "/login";
+        }}
+        className="flex items-center text-red-500 hover:text-red-600"
+    >
+        <LogOut className="w-5 h-5 mr-1" /> Log out
+    </button>
+</div>
+
         </div>
 
     );
