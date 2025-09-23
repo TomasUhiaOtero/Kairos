@@ -146,17 +146,32 @@ export const Inicio = () => {
       }));
 
       // 🔐 Anti-duplicados (visual) por (id) y por (title|date|groupId)
-      const byId = new Map();
-      normalizedTasks.forEach((t) => byId.set(String(t.id), t));
+      // === DEDUPLICACIÓN AGRESIVA ===
+// Clave = título normalizado (ignora fecha y grupo).
+// Si hay choque, conserva la tarea con id más alto (asumida como la "nueva").
+const normalizeTitle = (s) =>
+  String(s || "").trim().replace(/\s+/g, " ").toLowerCase();
 
-      const byContent = new Map();
-      Array.from(byId.values()).forEach((t) => {
-        const key = `${(t.title || "").trim().toLowerCase()}|${t.startDate || ""}|${t.groupId || ""}`;
-        byContent.set(key, t);
-      });
+const byTitle = new Map();
+normalizedTasks.forEach((t) => {
+  const key = normalizeTitle(t.title);
+  const prev = byTitle.get(key);
+  if (!prev) {
+    byTitle.set(key, t);
+  } else {
+    const prevId = Number(prev.id);
+    const curId  = Number(t.id);
+    const takeCurrent =
+      (Number.isFinite(curId) && Number.isFinite(prevId))
+        ? curId > prevId
+        : String(t.id) > String(prev.id);
+    if (takeCurrent) byTitle.set(key, t);
+  }
+});
 
-      const dedupedTasks = Array.from(byContent.values());
-      dispatch({ type: "SET_TASKS", payload: dedupedTasks });
+const dedupedTasks = Array.from(byTitle.values());
+dispatch({ type: "SET_TASKS", payload: dedupedTasks });
+
     };
 
     getData();
