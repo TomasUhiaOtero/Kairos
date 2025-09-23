@@ -1,17 +1,19 @@
 // store.js
 
 export const initialStore = () => ({
-  calendar: [], // Lista de calendarios
-  taskGroup: [], // Lista de grupos de tareas
-  events: [], // Eventos individuales asignados a calendarios
-  tasks: [], // Tareas individuales asignadas a grupos
-  completedRecurrentTasks: [], // Instancias completadas de tareas recurrentes
-  user: null, // Usuario logueado
+  calendar: [],                 // Lista de calendarios
+  taskGroup: [],                // Lista de grupos de tareas
+  events: [],                   // Eventos individuales asignados a calendarios
+  tasks: [],                    // Tareas individuales asignadas a grupos
+  completedRecurrentTasks: [],  // Instancias completadas de tareas recurrentes
+  user: null,                   // Usuario logueado
 });
 
 export default function storeReducer(store, action = {}) {
   switch (action.type) {
-    // CALENDAR
+    /* ======================
+       CALENDARS
+       ====================== */
     case "ADD_CALENDAR":
       return { ...store, calendar: [...store.calendar, action.payload] };
 
@@ -27,6 +29,7 @@ export default function storeReducer(store, action = {}) {
       return {
         ...store,
         calendar: store.calendar.filter((cal) => cal.id !== action.payload.id),
+        // limpia eventos de ese calendario
         events: store.events.filter(
           (ev) =>
             ev.calendarId !== action.payload.id &&
@@ -34,19 +37,19 @@ export default function storeReducer(store, action = {}) {
         ),
       };
 
-   
-case "SET_CALENDARS":
-  return {
-    ...store,
-    calendar: action.payload.calendars || [],
-    events:
-      action.payload.hasOwnProperty("events")
-        ? (action.payload.events || [])
-        : store.events, // ⬅️ mantiene eventos si no vienen en el payload
-  };
+    case "SET_CALENDARS":
+      return {
+        ...store,
+        calendar: action.payload.calendars || [],
+        events:
+          Object.prototype.hasOwnProperty.call(action.payload, "events")
+            ? (action.payload.events || [])
+            : store.events, // mantiene eventos si no vienen en el payload
+      };
 
-
-    // TASKGROUPS
+    /* ======================
+       TASK GROUPS
+       ====================== */
     case "ADD_TASKGROUP":
       return { ...store, taskGroup: [...store.taskGroup, action.payload] };
 
@@ -54,9 +57,7 @@ case "SET_CALENDARS":
       return {
         ...store,
         taskGroup: store.taskGroup.map((group) =>
-          group.id === action.payload.id
-            ? { ...group, ...action.payload }
-            : group
+          group.id === action.payload.id ? { ...group, ...action.payload } : group
         ),
       };
 
@@ -64,6 +65,7 @@ case "SET_CALENDARS":
       return {
         ...store,
         taskGroup: store.taskGroup.filter((g) => g.id !== action.payload.id),
+        // limpia tareas de ese grupo
         tasks: store.tasks.filter(
           (t) =>
             t.groupId !== action.payload.id &&
@@ -78,7 +80,9 @@ case "SET_CALENDARS":
         tasks: action.payload.tasks || [],
       };
 
-    // EVENTS
+    /* ======================
+       EVENTS
+       ====================== */
     case "ADD_EVENT":
       return { ...store, events: [...store.events, action.payload] };
 
@@ -86,7 +90,7 @@ case "SET_CALENDARS":
       return {
         ...store,
         events: store.events.map((event) =>
-          event.id === action.payload.id
+          String(event.id) === String(action.payload.id)
             ? { ...event, ...action.payload }
             : event
         ),
@@ -95,10 +99,34 @@ case "SET_CALENDARS":
     case "DELETE_EVENT":
       return {
         ...store,
-        events: store.events.filter((ev) => ev.id !== action.payload),
+        events: store.events.filter((ev) => String(ev.id) !== String(action.payload)),
       };
 
-    // TASKS
+    // ✅ Upsert (crea o actualiza) — útil para actualización instantánea
+    case "UPSERT_EVENT": {
+      const incoming = action.payload || {};
+      const targetId = String(
+        incoming.mode === "edit" ? (incoming.originalId ?? incoming.id) : incoming.id
+      );
+      const next = {
+        ...incoming,
+        id: targetId,
+        type: "event",
+        mode: undefined,
+        originalId: undefined,
+      };
+      const exists = store.events.some((e) => String(e.id) === targetId);
+      return {
+        ...store,
+        events: exists
+          ? store.events.map((e) => (String(e.id) === targetId ? next : e))
+          : [next, ...store.events],
+      };
+    }
+
+    /* ======================
+       TASKS
+       ====================== */
     case "ADD_TASK":
       return { ...store, tasks: [...store.tasks, action.payload] };
 
@@ -106,11 +134,12 @@ case "SET_CALENDARS":
       return {
         ...store,
         tasks: store.tasks.map((task) =>
-          task.id === action.payload.id ? { ...task, ...action.payload } : task
+          String(task.id) === String(action.payload.id)
+            ? { ...task, ...action.payload }
+            : task
         ),
       };
 
-    // **SET_TASKS**: reemplaza la lista completa de tareas
     case "SET_TASKS":
       return {
         ...store,
@@ -122,10 +151,34 @@ case "SET_CALENDARS":
     case "DELETE_TASK":
       return {
         ...store,
-        tasks: store.tasks.filter((t) => t.id !== action.payload),
+        tasks: store.tasks.filter((t) => String(t.id) !== String(action.payload)),
       };
 
-    // USER
+    // ✅ Upsert (crea o actualiza) — útil para actualización instantánea
+    case "UPSERT_TASK": {
+      const incoming = action.payload || {};
+      const targetId = String(
+        incoming.mode === "edit" ? (incoming.originalId ?? incoming.id) : incoming.id
+      );
+      const next = {
+        ...incoming,
+        id: targetId,
+        type: "task",
+        mode: undefined,
+        originalId: undefined,
+      };
+      const exists = store.tasks.some((t) => String(t.id) === targetId);
+      return {
+        ...store,
+        tasks: exists
+          ? store.tasks.map((t) => (String(t.id) === targetId ? next : t))
+          : [next, ...store.tasks],
+      };
+    }
+
+    /* ======================
+       USER
+       ====================== */
     case "SET_USER":
       return { ...store, user: action.payload };
 
