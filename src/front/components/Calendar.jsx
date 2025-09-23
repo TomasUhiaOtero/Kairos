@@ -244,22 +244,27 @@ const Calendar = () => {
               });
 
               // Añadir la nueva en el store
-              // Eliminamos primero la vieja del store (para evitar duplicados visuales)
-if (prev) {
-  dispatch({ type: "DELETE_TASK", payload: prev.id });
-}
+              dispatch({ type: "ADD_TASK", payload: normalized });
 
-// Añadimos la nueva
-dispatch({ type: "ADD_TASK", payload: normalized });
+              try {
+                // Borrar la antigua en backend
+                await apiDeleteUserTask(String(userId), String(prev.id));
+                // Eliminar antigua del store
+                dispatch({ type: "DELETE_TASK", payload: prev.id });
+              } catch (delErr) {
+                console.error("No se pudo borrar la tarea antigua; elimino la nueva para evitar duplicados:", delErr);
 
-// Intentamos borrar en backend (si falla, solo log)
-try {
-  await apiDeleteUserTask(String(userId), String(prev.id));
-} catch (delErr) {
-  console.error("No se pudo borrar la tarea antigua en backend:", delErr);
-  // 👀 No reinsertamos la vieja para evitar duplicados en la UI
-}
+                // Compensación: borrar la nueva (para no dejar 2 en BD tras recargar)
+                try {
+                  await apiDeleteUserTask(String(userId), String(normalized.id));
+                } catch { /* último recurso */ }
 
+                // Quitar nueva del store y volver al estado previo visualmente
+                dispatch({ type: "DELETE_TASK", payload: normalized.id });
+                dispatch({ type: "UPDATE_TASK", payload: prev });
+
+                alert(delErr?.message || "No se pudo mover la tarea de grupo");
+              }
             } catch (createErr) {
               console.error("Error creando tarea en el nuevo grupo:", createErr);
               alert(createErr?.message || "No se pudo mover la tarea de grupo");
