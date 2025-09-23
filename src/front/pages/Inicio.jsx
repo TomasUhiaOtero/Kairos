@@ -7,6 +7,103 @@ import { apiListUserTaskGroups, apiListCalendars, apiListEvents, getUserId } fro
 export const Inicio = () => {
     const { store, dispatch } = useGlobalReducer();
 
+    
+    
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekLater = new Date(today);
+    weekLater.setDate(today.getDate() + 7);
+
+    const normalizeDate = (d) => {
+        if (!d) return null;
+        const date = new Date(d);
+        date.setHours(0, 0, 0, 0);
+        return date;
+    };
+    
+    const tasks = store.tasks.map(t => ({
+        ...t,
+        type: "task",
+        _date: normalizeDate(t.startDate || t.start)
+    }));
+    const events = store.events.map(e => ({
+        ...e,
+        type: "event",
+        _date: normalizeDate(e.startDate || e.start)
+    }));
+    
+    const noDateTasks = tasks.filter(t => !t._date);
+    const todayItems = [...tasks, ...events].filter(i => i._date?.getTime() === today.getTime());
+    const weekItems = [...tasks, ...events].filter(i => i._date && i._date > today && i._date <= weekLater);
+    
+    const getItemColor = (item) => {
+        if (item.type === "task") {
+            const group = store.taskGroup.find(g => g.id === item.groupId);
+            return group?.color || "#2563eb";
+        }
+        if (item.type === "event") {
+            const cal = store.calendar.find(c => c.id === item.calendarId);
+            return cal?.color || "#2563eb";
+        }
+        return "#888";
+    };
+    
+    const toggleTaskDone = (task) => {
+        dispatch({ type: "UPDATE_TASK", payload: { ...task, done: !task.done } });
+    };
+    
+    const renderFullCalendarStyle = (item) => {
+        const color = getItemColor(item);
+        const displayTime = item.startTime ? item.startTime : "";
+        
+        return (
+            <div
+            key={`${item.type}-${item.id}`}
+            className={`item ${item.type}`}
+            style={item.type === "event" ? { backgroundColor: `${color}30`, color: color } : {borderRadius:"16px", color: color }}
+            >
+                {item.type === "task" && (
+                    <div
+                        className={`check ${item.done ? "done" : ""}`}
+                        onClick={() => toggleTaskDone(item)}
+                        style={{ borderColor: color, backgroundColor: item.done ? color : 'transparent' }}
+                        />
+                    )}
+
+                {displayTime && <span style={{ marginLeft: 4, fontWeight: 'semi-bold' }}>{displayTime}</span>}
+                <span style={{ marginLeft: 4, textDecoration: item.done ? 'line-through' : 'none' }}>
+                    {item.title}
+                </span>
+            </div>
+        );
+    };
+    
+    // helper para partir ISO en fecha/hora (p.e. "2025-09-22T10:30:00")
+    const parseISOToParts = (iso) => {
+        if (!iso) return { date: null, time: null };
+        const [d, t] = String(iso).split("T");
+        return { date: d || null, time: t ? t.slice(0, 5) : null };
+    };
+    
+    const normalizeEventFromServer = (s) => {
+        const { date: sDate, time: sTime } = parseISOToParts(s.start_date);
+        const { date: eDate, time: eTime } = parseISOToParts(s.end_date);
+        return {
+            id: String(s.id),
+            type: "event",
+            title: s.title,
+            calendarId: s.calendar_id,
+            startDate: sDate || null,
+            endDate: eDate || sDate || null,
+            startTime: s.all_day ? "" : (sTime || ""),
+            endTime: s.all_day ? "" : (eTime || ""),
+            allDay: !!s.all_day,
+            description: s.description || "",
+            color: s.color || "",
+        };
+    };
+
     useEffect(() => {
         const getData = async () => {
             // Calendarios
@@ -54,104 +151,7 @@ export const Inicio = () => {
         getData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const weekLater = new Date(today);
-    weekLater.setDate(today.getDate() + 7);
-
-    const normalizeDate = (d) => {
-        if (!d) return null;
-        const date = new Date(d);
-        date.setHours(0, 0, 0, 0);
-        return date;
-    };
-
-    const tasks = store.tasks.map(t => ({
-        ...t,
-        type: "task",
-        _date: normalizeDate(t.startDate || t.start)
-    }));
-    const events = store.events.map(e => ({
-        ...e,
-        type: "event",
-        _date: normalizeDate(e.startDate || e.start)
-    }));
-
-    const noDateTasks = tasks.filter(t => !t._date);
-    const todayItems = [...tasks, ...events].filter(i => i._date?.getTime() === today.getTime());
-    const weekItems = [...tasks, ...events].filter(i => i._date && i._date > today && i._date <= weekLater);
-
-    const getItemColor = (item) => {
-        if (item.type === "task") {
-            const group = store.taskGroup.find(g => g.id === item.groupId);
-            return group?.color || "#2563eb";
-        }
-        if (item.type === "event") {
-            const cal = store.calendar.find(c => c.id === item.calendarId);
-            return cal?.color || "#2563eb";
-        }
-        return "#888";
-    };
-
-    const toggleTaskDone = (task) => {
-        dispatch({ type: "UPDATE_TASK", payload: { ...task, done: !task.done } });
-    };
-
-    const renderFullCalendarStyle = (item) => {
-        const color = getItemColor(item);
-        const displayTime = item.startTime ? item.startTime : "";
-
-        return (
-            <div
-                key={`${item.type}-${item.id}`}
-                className={`item ${item.type}`}
-                style={item.type === "event" ? { backgroundColor: `${color}30`, color: color } : {borderRadius:"16px", color: color }}
-            >
-                {item.type === "task" && (
-                    <div
-                        className={`check ${item.done ? "done" : ""}`}
-                        onClick={() => toggleTaskDone(item)}
-                        style={{ borderColor: color, backgroundColor: item.done ? color : 'transparent' }}
-                    />
-                )}
-
-                {displayTime && <span style={{ marginLeft: 4, fontWeight: 'semi-bold' }}>{displayTime}</span>}
-                <span style={{ marginLeft: 4, textDecoration: item.done ? 'line-through' : 'none' }}>
-                    {item.title}
-                </span>
-            </div>
-        );
-    };
-
-    // helper para partir ISO en fecha/hora (p.e. "2025-09-22T10:30:00")
-    const parseISOToParts = (iso) => {
-        if (!iso) return { date: null, time: null };
-        const [d, t] = String(iso).split("T");
-        return { date: d || null, time: t ? t.slice(0, 5) : null };
-    };
-
-    const normalizeEventFromServer = (s) => {
-        const { date: sDate, time: sTime } = parseISOToParts(s.start_date);
-        const { date: eDate, time: eTime } = parseISOToParts(s.end_date);
-        return {
-            id: String(s.id),
-            type: "event",
-            title: s.title,
-            calendarId: s.calendar_id,
-            startDate: sDate || null,
-            endDate: eDate || sDate || null,
-            startTime: s.all_day ? "" : (sTime || ""),
-            endTime: s.all_day ? "" : (eTime || ""),
-            allDay: !!s.all_day,
-            description: s.description || "",
-            color: s.color || "",
-        };
-    };
-
-
+    
     return (
         <div className="container-fluid">
             <div className="row">
@@ -159,7 +159,7 @@ export const Inicio = () => {
                 <div className="d-none d-lg-block col-lg"></div>
 
                 {/* Calendario */}
-                <div className="col-12 col-lg-7 p-3 rounded my-card calendar-container m-3">
+                <div className="col-12 col-lg-7 my-card calendar-container m-3">
                     <Calendar />
                 </div>
 

@@ -1,6 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+body{
+  background-color: #b1b1b105;
+}
+
 .item {
   display: flex;
   align-items: center;
@@ -103,7 +107,7 @@
 }
 /* Animación de apertura */
 .form-appear {
-  animation: form-appear 350ms ease 0s 1 normal forwards;
+  animation: form-appear 200ms ease 0s 1 normal forwards;
 }
 
 @keyframes form-appear {
@@ -124,7 +128,173 @@
   border: 1px solid rgba(0, 0, 0, 0.05);
   color: #2d3748;
 }
-.fc .fc-day-today,
-.fc .fc-timegrid-col.fc-day-today {
+.fc .fc-day-today {
   background-color: transparent !important;
+}
+.fc .fc-timegrid-col.fc-day-today {
+  background-color: #33333309 !important;
+}
+
+/* Permitir varias líneas dentro del evento */
+.fc-event-title,
+.fc-event-main {
+  white-space: normal !important;   /* permite saltos */
+  overflow-wrap: break-word !important; /* corta palabras largas */
+  word-break: break-word !important;
+  line-height: 1.2;
+  max-height: 3em; /* límite de altura (≈2 líneas) */
+  overflow: hidden; /* oculta lo que pase del límite */
+}
+@media (max-width: 640px) {
+  /* Celda del día */
+  .fc-daygrid-day-frame {
+    display: flex;
+    flex-direction: column;  
+    align-items: center;     
+    justify-content: flex-start; 
+    padding: 2px !important;
+    height: auto !important;
+    min-height: 0 !important; /* elimina altura mínima grande */
+  }
+
+  /* Número del día centrado horizontalmente */
+  .fc-daygrid-day-top {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 2px;
+    padding: 0; /* quitar padding extra */
+  }
+
+  .fc-daygrid-day-number {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2rem;
+  }
+
+  /* Contenedor de los puntitos */
+  .fc-daygrid-day-events {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center;
+    gap: 2px;
+    flex-wrap: wrap;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-height: 12px; /* limitar altura de puntitos */
+    overflow: hidden; /* si hay muchos, que no expanda la celda */
+  }
+
+  /* Cada puntito */
+  .fc-daygrid-day-events .fc-event {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+    border: none !important;
+  }
+}
+
+.form-select {
+  border:none;
+  text-align: center;
+}
+/* Bordes de las celdas del mes */
+.fc .fc-daygrid-day {
+  border: 1px solid rgba(0, 0, 0, 0.05); /* gris muy clarito */
+}
+
+/* Opcional: separar también el header */
+.fc .fc-col-header-cell {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Si quieres solo horizontales más claras y verticales normales */
+.fc .fc-daygrid-day {
+  border-top: 1px solid rgba(0,0,0,0.05);
+  border-left: 1px solid rgba(0,0,0,0.05);
+  border-right: none;
+  border-bottom: none;
+}
+@media (max-width: 640px) {
+  /* Quitar todas las líneas internas */
+  .fc .fc-daygrid-day,
+  .fc .fc-daygrid-day-frame,
+  .fc .fc-daygrid-day-top,
+  .fc .fc-daygrid-day-events,
+  .fc .fc-col-header-cell {
+    border: none !important;
+  }
+
+  /* Quitar bordes exteriores del calendario */
+  .fc .fc-daygrid,
+  .fc .fc-col-header,
+  .fc .fc-scrollgrid {
+    border: none !important;
+  }
+
+  /* Ajuste de la celda */
+  .fc-daygrid-day-frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 4px !important;
+    min-height: 24px;
+    height: auto !important;
+  }
+
+  .fc-daygrid-day-top {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .fc-daygrid-day-number {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .fc-daygrid-day-events {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .fc-daygrid-day-events .fc-event {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    border: none !important;
+  }
+}
+
+/* Atenuar líneas internas del calendario */
+.fc .fc-daygrid-day-frame {
+  border: 1px solid rgba(0, 0, 0, 0.05); /* líneas internas suaves */
+}
+
+/* Quitar borde exterior del calendario */
+.fc .fc-daygrid {
+  border: none !important;
+}
+
+/* Quitar borde superior de los encabezados de columnas */
+.fc .fc-col-header-cell {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-top: none;
+}
+
+/* Opcional: eliminar bordes laterales de los días */
+.fc .fc-daygrid-day {
+  border-left: none;
+  border-right: none;
 }

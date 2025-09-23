@@ -95,6 +95,7 @@ const Calendar = () => {
     });
     return obj;
   };
+  
 
   const calendarsColors = getCalendarsColors();
   const taskGroupsColors = getTaskGroupsColors();
@@ -454,13 +455,7 @@ const Calendar = () => {
     }
   };
 
-  useEffect(() => {
-    const closePopover = (e) => {
-      if (popover && !e.target.closest('.popover-form')) setPopover(null);
-    };
-    document.addEventListener('mousedown', closePopover);
-    return () => document.removeEventListener('mousedown', closePopover);
-  }, [popover]);
+
 
   // --- Toolbar ---
   const updateTitle = () => setTitle(calendarRef.current?.getApi().view.title || '');
@@ -473,15 +468,9 @@ const Calendar = () => {
     ...store.events.map(e => ({ ...e, type: 'event' })),
     ...store.tasks.map(t => ({ ...t, type: 'task' }))
   ];
-  
-  useEffect(() => {
-    const handleResize = () => {
-      setIsCompact(window.innerWidth < 640); // cambia 640 a tu breakpoint deseado
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  
+
+
+
   // --- Renderizado ---
   const renderEventContent = (eventInfo) => {
     const { type, groupId } = eventInfo.event.extendedProps;
@@ -530,37 +519,53 @@ const Calendar = () => {
       );
     }
 
-    const startStr = !isAllDay
-      ? (eventInfo.event.start ? formatTime(eventInfo.event.start) : (eventInfo.event.extendedProps.startTime || ""))
-      : "";
-
+    
     const endStr = !isAllDay
-      ? (eventInfo.event.end ? formatTime(eventInfo.event.end) : (eventInfo.event.extendedProps.endTime || ""))
-      : "";
+    ? (eventInfo.event.end ? formatTime(eventInfo.event.end) : (eventInfo.event.extendedProps.endTime || ""))
+    : "";
+    
+    const startStr = !isAllDay
+  ? (eventInfo.event.start ? formatTime(eventInfo.event.start) : (eventInfo.event.extendedProps.startTime || ""))
+  : "";
 
-    return (
-      <div style={{ padding: "4px 6px" }}>
-        {startStr && (
-          <span style={{ marginRight: "0.3em", fontWeight: "bold" }}>
-            {endStr ? `${startStr}–${endStr}` : startStr}
-          </span>
-        )}
-        {eventInfo.event.title}
-      </div>
-    );
+return (
+  <div style={{ padding: "4px 6px" }}>
+    {startStr && (
+      <span style={{ marginRight: "0.3em", fontWeight: "bold" }}>
+        {startStr}
+      </span>
+    )}
+    {eventInfo.event.title}
+  </div>
+);
   };
 
+  // USE EFFECT ---------------------------
+  useEffect(() => {
+    const closePopover = (e) => {
+      if (popover && !e.target.closest('.popover-form')) setPopover(null);
+    };
+    document.addEventListener('mousedown', closePopover);
+    return () => document.removeEventListener('mousedown', closePopover);
+  }, [popover]);
+  useEffect(() => {
+    const handleResize = () => {
+      setIsCompact(window.innerWidth < 640); // cambia 640 a tu breakpoint deseado
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   return (
     <div>
-      <div className="custom-toolbar flex justify-between mb-2">
+      <div className="custom-toolbar flex justify-between mb-2 items-center">
         <div className="left-controls flex gap-1 items-center">
           <button onClick={goPrev} className="fc-button fc-button-primary fc-icon fc-icon-chevron-left" />
-          <button onClick={goToday} className="fc-button fc-button-primary">Hoy</button>
+          <button onClick={goToday} className="fc-button fc-button-primary text-emerald-700">Hoy</button>
           <button onClick={goNext} className="fc-button fc-button-primary fc-icon fc-icon-chevron-right" />
         </div>
         <div className="center-title font-bold">{title}</div>
         <div className="right-controls">
-          <select className="form-select" onChange={handleViewChange}>
+          <select className="form-select text-emerald-700" onChange={handleViewChange}>
             <option value="dayGridMonth">Mes</option>
             <option value="timeGridWeek">Semana</option>
           </select>
@@ -598,7 +603,7 @@ const Calendar = () => {
               done: item.done ?? false,
               ...rest
             },
-            
+
             display: 'block',
             startEditable: true,
             durationEditable: type === 'event',
@@ -606,40 +611,49 @@ const Calendar = () => {
           };
         })}
         eventDidMount={(info) => {
-    if (info.event.extendedProps.type === "task") {
-      // Aplica borde y fondo al <a>
-      info.el.style.borderRadius = "16px";
-      info.el.style.overflow = "hidden";
-      info.el.style.backgroundColor = "#fff"; // o rgba si quieres semitransparente
-      info.el.style.border = `1px solid ${info.event.extendedProps.groupColor || '#5a8770'}`;
+          if (info.event.extendedProps.type === "task") {
+            // Aplica borde y fondo al <a>
+            info.el.style.borderRadius = "16px";
+            info.el.style.overflow = "hidden";
+            info.el.style.backgroundColor = "#fff"; // o rgba si quieres semitransparente
+            info.el.style.border = `1px solid ${info.event.extendedProps.groupColor || '#5a8770'}`;
 
-      // También aplica a fc-event-main para que el contenido respete el borde
-      const main = info.el.querySelector('.fc-event-main');
-      if (main) {
-        main.style.borderRadius = "16px";
-        main.style.overflow = "hidden";
-      }
-    }
-  }}
-dayCellDidMount={(info) => {
-  if (info.isToday) {
-    const numberEl = info.el.querySelector(".fc-daygrid-day-number, .fc-col-header-cell-cushion");
-    if (numberEl) {
-      numberEl.classList.add(
-        "bg-red-500",
-        "text-white",
-        "rounded-full",
-        "w-7",
-        "h-7",
-        "flex",
-        "items-center",
-        "justify-center",
-        "ms-auto",
-        "font-semibold"
-      );
-    }
-  }
-}}
+            // También aplica a fc-event-main para que el contenido respete el borde
+            const main = info.el.querySelector('.fc-event-main');
+            if (main) {
+              main.style.borderRadius = "16px";
+              main.style.overflow = "hidden";
+            }
+          }
+        }}
+        dayCellDidMount={(info) => {
+          if (info.isToday) {
+            const numberEl = info.el.querySelector(".fc-daygrid-day-number, .fc-col-header-cell-cushion");
+            if (numberEl) {
+              numberEl.classList.add(
+                "bg-red-500",
+                "text-white",
+                "rounded-full",
+                "w-7",
+                "h-7",
+                "flex",
+                "items-center",
+                "justify-center",
+                "ms-auto",
+                "font-semibold"
+              );
+            }
+          }
+        }}
+        windowResize={(arg) => {
+          if (window.innerWidth < 640 && arg.view.type === "dayGridMonth") {
+            arg.view.calendar.setOption("eventDisplay", "none");
+          } else {
+            arg.view.calendar.setOption("eventDisplay", "block");
+          }
+        }}
+        fixedWeekCount={false}   // 👈 no fuerza siempre 6 semanas
+        contentHeight="auto"
         displayEventTime
         eventContent={renderEventContent}
         dateClick={handleDateClick}
@@ -656,10 +670,19 @@ dayCellDidMount={(info) => {
       />
 
       {popover && (
-        <div className="popover bs-popover-top show position-absolute popover-form form-appear bg-white/30 backdrop-blur-md p-6 rounded-lg shadow-lg p-0"
-          style={{ top: popover.y, left: popover.x, zIndex: 2000, minWidth: 320, maxWidth: 500, width: 'auto' }}
+        <div
+          className="popover bs-popover-top show position-absolute popover-form form-appear bg-white/30 backdrop-blur-md p-6 rounded-lg shadow-lg p-0"
+          style={{
+            top: isCompact ? 60 : popover.y,        // distancia desde arriba en móvil
+            left: isCompact ? 12 : popover.x,       // margen lateral izquierdo
+            right: isCompact ? 12 : 'auto',         // margen lateral derecho
+            zIndex: 2000,
+            width: isCompact ? 'auto' : 'auto',     // ancho automático, respetando márgenes
+            maxWidth: isCompact ? 'calc(100% - 24px)' : 500, // ancho máximo considerando márgenes
+            minWidth: isCompact ? 'calc(100% - 24px)' : 320,
+          }}
         >
-          <div className="popover-arrow"></div>
+          <div className="popover-arrow" style={{ display: isCompact ? 'none' : 'block' }}></div>
           <div className="popover-body">
             <CreateEvent
               selectedDate={popover.item.startDate || popover.item.start}
